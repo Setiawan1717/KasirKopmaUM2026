@@ -13,33 +13,47 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
+        /* PENGATURAN CETAK STRUK THERMAL YANG BARU */
         @media print {
-    /* Mengatur margin kertas bawaan browser menjadi nol */
-    @page {
-        margin: 0; 
-    }
+            /* Mengatur margin kertas bawaan browser menjadi nol */
+            @page {
+                margin: 0; 
+            }
 
-    /* Memaksa tinggi body menyesuaikan konten (tidak dipaksa panjang) */
-    html, body {
-        height: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden;
-    }
+            /* Memaksa tinggi body menyesuaikan konten (tidak dipaksa panjang) */
+            html, body {
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden;
+            }
 
-    /* Memastikan kontainer struk tidak memiliki margin bawah yang berlebih */
-    .container-struk { /* Ganti dengan class pembungkus struk kamu */
-        height: auto !important;
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
-    }
-
-    /* Sembunyikan tombol print, navigasi, atau elemen web lainnya */
-    .sembunyikan-saat-print {
-        display: none !important;
-    }
-}
-
+            /* Sembunyikan semua elemen web kecuali area struk */
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            
+            /* Kontainer struk utama */
+            #print-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 58mm; 
+                height: auto !important;
+                margin-bottom: 0 !important;
+                padding: 2mm; 
+                padding-bottom: 0 !important;
+                font-family: monospace; 
+                font-size: 12px; 
+                color: black; 
+                background: white;
+            }
+            
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex">
+    <div id="app" v-cloak class="flex w-full min-h-screen">
 
         <!-- ========================================== -->
         <!-- SIDEBAR (MENU KIRI) -->
@@ -73,7 +87,6 @@
                             <i class="fas fa-history w-5 text-center"></i><span class="font-medium">Riwayat Transaksi</span>
                         </button>
                     </li>
-                    <!-- REVISI 1: MENU LAPORAN SEKARANG TRANSPARAN SESUAI TEMA BAWAAN -->
                     <li v-if="role === 'admin'">
                         <button @click="page = 'laporan'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-chart-pie w-5 text-center"></i><span class="font-medium">Laporan Keuangan</span>
@@ -312,15 +325,12 @@
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
-                        
                         <div class="flex flex-wrap items-center gap-3">
-                            <!-- REVISI 3: TOTAL NOMINAL RIWAYAT DI SAMPING KIRI TANGGAL -->
                             <div class="flex items-center bg-emerald-50 border border-emerald-200 py-1.5 px-3 rounded-lg shadow-sm">
                                 <i class="fas fa-wallet text-emerald-600 mr-2 text-sm"></i>
                                 <span class="text-xs font-bold text-emerald-700 mr-1 uppercase">Total:</span>
                                 <span class="text-sm font-black text-emerald-800">Rp {{ totalNominalRiwayat.toLocaleString('id-ID') }}</span>
                             </div>
-
                             <div class="flex items-center bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
                                 <span class="text-sm font-bold text-slate-500 px-3"><i class="fas fa-calendar-alt mr-1"></i> Tanggal:</span>
                                 <input type="date" v-model="filterTanggal" class="px-2 py-1.5 text-sm font-bold text-slate-700 focus:outline-none bg-transparent cursor-pointer rounded">
@@ -652,11 +662,6 @@
                     return result;
                 });
 
-                // REVISI 3: KALKULASI TOTAL NOMINAL TRANSAKSI DI RIWAYAT
-                const totalNominalRiwayat = computed(() => {
-                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
-                });
-
                 // Kalkulasi Laporan Keuangan
                 const hitungTotalPemasukan = computed(() => {
                     return daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0);
@@ -682,6 +687,10 @@
                     return hitungLabaKotor.value - hitungTotalPengeluaran.value;
                 });
 
+                const totalNominalRiwayat = computed(() => {
+                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
+                });
+
                 const formatTanggal = (isoString) => {
                     const d = new Date(isoString);
                     return d.toLocaleDateString('id-ID') + ' ' + d.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
@@ -705,7 +714,7 @@
                 const bukaFormDaftar = () => {
                     if (isLoginMode.value) {
                         const pin = prompt("Otorisasi: Masukkan PIN Rahasia Pemilik");
-                        if (pin === "AditGantengPol") { 
+                        if (pin === "123456") { 
                             isLoginMode.value = false;
                             username.value = ''; password.value = '';
                         } else if (pin !== null) {
@@ -777,7 +786,6 @@
                     if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id));
                 };
 
-                // REVISI 2: PROSES BARANG MASUK SEKALIGUS MENCATAT PENGELUARAN OTOMATIS
                 const prosesBarangMasuk = async () => {
                     const prodId = formBarangMasuk.value.idProduk;
                     const jumlah = formBarangMasuk.value.jumlah;
