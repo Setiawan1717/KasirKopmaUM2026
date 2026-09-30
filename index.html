@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS Web - Kopma UM</title>
+    <!-- Library CSS & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Library QZ Tray untuk Direct Raw Printing -->
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script>
+    
     <style>
         [v-cloak] { display: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -13,41 +17,13 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* PENGATURAN CETAK STRUK THERMAL YANG BARU */
+        /* Fallback Print Browser (Jika QZ Tray mati) */
         @media print {
-            /* Mengatur margin kertas bawaan browser menjadi nol */
-            @page {
-                margin: 0; 
-            }
-
-            /* Memaksa tinggi body menyesuaikan konten (tidak dipaksa panjang) */
-            html, body {
-                height: auto !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden;
-            }
-
-            /* Sembunyikan semua elemen web kecuali area struk */
+            @page { margin: 0; }
+            html, body { height: auto !important; margin: 0 !important; padding: 0 !important; overflow: hidden; }
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            
-            /* Kontainer struk utama */
-            #print-area { 
-                position: absolute; 
-                left: 0; 
-                top: 0; 
-                width: 58mm; 
-                height: auto !important;
-                margin-bottom: 0 !important;
-                padding: 2mm; 
-                padding-bottom: 0 !important;
-                font-family: monospace; 
-                font-size: 12px; 
-                color: black; 
-                background: white;
-            }
-            
+            #print-area { position: absolute; left: 0; top: 0; width: 58mm; height: auto !important; margin-bottom: 0 !important; padding: 2mm; padding-bottom: 0 !important; font-family: monospace; font-size: 12px; color: black; background: white;}
             .no-print { display: none !important; }
         }
     </style>
@@ -228,6 +204,22 @@
                                 <div v-if="metodeBayar === 'Tunai' && kembalian >= 0" class="flex justify-between items-center mb-5 p-4 bg-emerald-50 rounded-xl border border-emerald-200 shadow-sm">
                                     <span class="text-emerald-700 font-bold">Kembalian</span>
                                     <span class="text-emerald-700 font-black text-xl">Rp {{ kembalian.toLocaleString('id-ID') }}</span>
+                                </div>
+
+                                <!-- UI KONEKSI PRINTER QZ TRAY -->
+                                <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider"><i class="fas fa-print mr-1"></i> Printer Thermal</span>
+                                        <span :class="qzConnected ? 'text-emerald-500' : 'text-rose-500'" class="text-[10px] font-bold flex items-center border px-2 py-1 rounded-full" :class="qzConnected ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'">
+                                            <span class="w-2 h-2 rounded-full mr-1.5" :class="qzConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
+                                            {{ qzConnected ? 'Siap' : 'Offline' }}
+                                        </span>
+                                    </div>
+                                    <select v-model="selectedPrinter" class="w-full p-2 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 appearance-none font-medium text-slate-700">
+                                        <option value="">-- Pilih Printer --</option>
+                                        <option v-for="p in daftarPrinter" :key="p" :value="p">{{ p }}</option>
+                                    </select>
+                                    <p v-if="!qzConnected" class="text-[10px] text-rose-500 mt-1 italic"><i class="fas fa-exclamation-triangle"></i> Buka aplikasi QZ Tray di PC Anda agar terhubung.</p>
                                 </div>
 
                                 <button @click="simpanTransaksi" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-lg">
@@ -528,7 +520,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- AREA CETAK STRUK THERMAL -->
+        <!-- AREA CETAK STRUK THERMAL (FALLBACK BROWSER PRINT) -->
         <!-- ========================================== -->
         <div id="print-area" v-if="strukAktif">
             <div style="text-align: center; border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
@@ -604,19 +596,41 @@
                 const filterTransaksi = ref('Semua'); 
                 const filterTanggal = ref('');
 
-                // STATE Laporan & Pengeluaran
                 const daftarPengeluaran = ref([]);
                 const formPengeluaran = ref({ keterangan: '', nominal: '' });
 
+                // STATE QZ TRAY PRINTER
+                const qzConnected = ref(false);
+                const daftarPrinter = ref([]);
+                const selectedPrinter = ref('');
+
+                // INISIALISASI QZ TRAY
+                const initQZ = () => {
+                    qz.websocket.connect().then(() => {
+                        qzConnected.value = true;
+                        return qz.printers.find();
+                    }).then((printers) => {
+                        daftarPrinter.value = printers;
+                        // Pilih otomatis printer berbau '58'
+                        const defaultPrinter = printers.find(p => p.toLowerCase().includes('xp-58') || p.toLowerCase().includes('pos-58'));
+                        if (defaultPrinter) {
+                            selectedPrinter.value = defaultPrinter;
+                        } else if (printers.length > 0) {
+                            selectedPrinter.value = printers[0]; // Fallback ke printer pertama
+                        }
+                    }).catch((err) => {
+                        console.warn("QZ Tray tidak aktif atau belum diinstal. Berjalan tanpa print raw ESC/POS.");
+                        qzConnected.value = false;
+                    });
+                };
+
                 onMounted(() => {
-                    // Produk
                     onSnapshot(collection(db, "products"), (snapshot) => {
                         let temp = [];
                         snapshot.forEach(doc => temp.push({ id: doc.id, ...doc.data() }));
                         products.value = temp;
                     });
                     
-                    // Riwayat Transaksi
                     const qTrx = query(collection(db, "transactions"), orderBy("tanggal", "desc"));
                     onSnapshot(qTrx, (snapshot) => {
                         let tempTrx = [];
@@ -624,13 +638,15 @@
                         daftarTransaksi.value = tempTrx;
                     });
 
-                    // Riwayat Pengeluaran
                     const qPeng = query(collection(db, "pengeluaran"), orderBy("tanggal", "desc"));
                     onSnapshot(qPeng, (snapshot) => {
                         let tempPeng = [];
                         snapshot.forEach(doc => tempPeng.push({ id: doc.id, ...doc.data() }));
                         daftarPengeluaran.value = tempPeng;
                     });
+
+                    // Panggil inisialisasi QZ saat web terbuka
+                    initQZ();
                 });
 
                 const filteredProducts = computed(() => {
@@ -662,7 +678,10 @@
                     return result;
                 });
 
-                // Kalkulasi Laporan Keuangan
+                const totalNominalRiwayat = computed(() => {
+                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
+                });
+
                 const hitungTotalPemasukan = computed(() => {
                     return daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0);
                 });
@@ -685,10 +704,6 @@
 
                 const hitungLabaBersih = computed(() => {
                     return hitungLabaKotor.value - hitungTotalPengeluaran.value;
-                });
-
-                const totalNominalRiwayat = computed(() => {
-                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
                 });
 
                 const formatTanggal = (isoString) => {
@@ -759,7 +774,6 @@
                     signOut(auth).then(() => { role.value = null; currentUser.value = ''; cart.value = []; page.value='pos'; });
                 };
 
-                // Fungsi Manajemen Pengeluaran Manual
                 const tambahPengeluaran = async () => {
                     if(!formPengeluaran.value.keterangan || formPengeluaran.value.nominal <= 0) return;
                     await addDoc(collection(db, "pengeluaran"), {
@@ -797,11 +811,9 @@
                         try {
                             const batch = writeBatch(db);
                             
-                            // 1. Update Stok Produk
                             const prodRef = doc(db, "products", prodId);
                             batch.update(prodRef, { stok: prodAsli.stok + jumlah });
                             
-                            // 2. Catat Pengeluaran Otomatis (Jumlah Masuk * Harga Modal)
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
                                 const pengeluaranRef = doc(collection(db, "pengeluaran"));
@@ -846,6 +858,71 @@
                     else cart.value.splice(index, 1);
                 };
 
+                // FUNGSI MENCETAK DENGAN QZ TRAY ESC/POS RAW
+                const cetakStrukQZ = (struk) => {
+                    if (!qzConnected.value || !selectedPrinter.value) {
+                        console.warn("Printer tidak tersedia. Fallback ke window.print()");
+                        window.print();
+                        return;
+                    }
+
+                    // Helper pembatas spasi (Maksimal 32 karakter untuk 58mm Thermal)
+                    const formatLine = (left, right) => {
+                        let leftStr = String(left).substring(0, 20); // Batasi nama panjang
+                        let rightStr = String(right);
+                        let spaceLen = 32 - leftStr.length - rightStr.length;
+                        if (spaceLen < 1) spaceLen = 1;
+                        return leftStr + " ".repeat(spaceLen) + rightStr + '\n';
+                    };
+
+                    let config = qz.configs.create(selectedPrinter.value);
+                    let data = [
+                        '\x1B' + '\x40',          // Init (ESC @)
+                        '\x1B' + '\x61' + '\x01', // Center align
+                        '\x1B' + '\x45' + '\x01', // Bold on
+                        'KOPMA UM\n',
+                        '\x1B' + '\x45' + '\x00', // Bold off
+                        'Universitas Negeri Malang\n',
+                        'Kasir: ' + struk.kasir + '\n',
+                        formatTanggal(struk.tanggal) + '\n',
+                        '--------------------------------\n',
+                        '\x1B' + '\x61' + '\x00', // Left align
+                    ];
+
+                    // Item list
+                    struk.cart.forEach(item => {
+                        data.push(item.nama + '\n');
+                        let qtyPrice = `${item.qty} x ${item.hargaJual.toLocaleString('id-ID')}`;
+                        let totalItem = (item.qty * item.hargaJual).toLocaleString('id-ID');
+                        data.push(formatLine(qtyPrice, totalItem));
+                    });
+
+                    data.push('--------------------------------\n');
+                    data.push(formatLine('Subtotal:', struk.subtotal.toLocaleString('id-ID')));
+                    if (struk.diskon > 0) {
+                        data.push(formatLine('Diskon:', '-' + struk.diskon.toLocaleString('id-ID')));
+                    }
+                    data.push('\x1B' + '\x45' + '\x01'); // Bold on
+                    data.push(formatLine('TOTAL:', struk.total.toLocaleString('id-ID')));
+                    data.push('\x1B' + '\x45' + '\x00'); // Bold off
+                    data.push('--------------------------------\n');
+                    data.push(formatLine('Metode:', struk.metodeBayar));
+                    if (struk.metodeBayar === 'Tunai') {
+                        data.push(formatLine('Bayar:', struk.uangDiterima.toLocaleString('id-ID')));
+                        data.push(formatLine('Kembali:', struk.kembalian.toLocaleString('id-ID')));
+                    }
+                    
+                    data.push('\x1B' + '\x61' + '\x01'); // Center align
+                    data.push('\nTerima Kasih Atas Kunjungan Anda\n');
+                    data.push('\x0A\x0A\x0A\x0A'); // Feed kertas
+                    data.push('\x1D' + '\x56' + '\x41' + '\x00'); // Full Cut Paper command
+
+                    qz.print(config, data).catch(err => {
+                        alert("Gagal print via QZ: " + err);
+                        window.print(); // Fallback
+                    });
+                };
+
                 const simpanTransaksi = async () => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
 
@@ -875,7 +952,10 @@
                     };
 
                     setTimeout(() => {
-                        window.print();
+                        // REVISI QZ TRAY: Cetak lewat ESC/POS atau Fallback ke Window
+                        cetakStrukQZ(strukAktif.value);
+                        
+                        // Bersihkan keranjang
                         cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
                     }, 500);
                 };
@@ -907,7 +987,8 @@
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
-                    setUang, bukaFormDaftar, prosesAuth, logout, tambahProduk, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran
+                    setUang, bukaFormDaftar, prosesAuth, logout, tambahProduk, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
+                    qzConnected, daftarPrinter, selectedPrinter // State QZ Tray
                 };
             }
         }).mount('#app');
