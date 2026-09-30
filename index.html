@@ -29,7 +29,7 @@
         <!-- ========================================== -->
         <aside class="w-64 bg-[#1e293b] text-white flex flex-col no-print shadow-xl z-20 flex-shrink-0 sticky top-0 h-screen">
             <div class="p-5 flex items-center space-x-3 border-b border-slate-700">
-                <i class="fas fa-store text-blue-400 text-2xl"></i>
+                <img src="LogoKopma.jpg" alt="Logo Kopma UM" class="h-8 w-8 object-contain">
                 <h1 class="text-xl font-bold tracking-wider">POS Web</h1>
             </div>
 
@@ -56,10 +56,10 @@
                             <i class="fas fa-history w-5 text-center"></i><span class="font-medium">Riwayat Transaksi</span>
                         </button>
                     </li>
-                    <!-- MENU BARU: LAPORAN -->
+                    <!-- REVISI 1: TAMPILAN MENU LAPORAN DISEPADANKAN (TIDAK ADA KOTAK/BORDER/GRADASI) -->
                     <li v-if="role === 'admin'">
-                        <button @click="page = 'laporan'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors mt-4 bg-gradient-to-r hover:from-emerald-600 hover:to-teal-600 border border-slate-600" :class="page === 'laporan' ? 'from-emerald-500 to-teal-500 text-white shadow-md' : 'text-slate-300 hover:text-white'">
-                            <i class="fas fa-chart-pie w-5 text-center"></i><span class="font-bold">Laporan Keuangan</span>
+                        <button @click="page = 'laporan'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                            <i class="fas fa-chart-pie w-5 text-center"></i><span class="font-medium">Laporan Keuangan</span>
                         </button>
                     </li>
                 </ul>
@@ -209,7 +209,6 @@
                 </div>
 
                 <!-- 2. HALAMAN MASTER PRODUK -->
-                <!-- [KODE MASTER PRODUK TETAP SAMA SEPERTI SEBELUMNYA] -->
                 <div v-if="page === 'produk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-boxes text-blue-500 mr-2"></i> Manajemen Data Produk</h2>
@@ -257,7 +256,6 @@
                 </div>
 
                 <!-- 3. HALAMAN BARANG MASUK -->
-                <!-- [KODE BARANG MASUK TETAP SAMA] -->
                 <div v-if="page === 'barang_masuk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-truck-loading text-emerald-500 mr-2"></i> Form Barang Masuk</h2>
@@ -287,13 +285,14 @@
                                 <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
                                     <i class="fas fa-plus-circle"></i> <span>Tambahkan Stok ke Gudang</span>
                                 </button>
+                                <!-- Info tambahan untuk meyakinkan pengguna -->
+                                <p class="text-xs text-slate-500 text-center mt-2"><i class="fas fa-info-circle"></i> Proses ini akan otomatis mencatat biaya kulakan ke dalam Pengeluaran.</p>
                             </form>
                         </div>
                     </div>
                 </div>
 
                 <!-- 4. HALAMAN RIWAYAT TRANSAKSI -->
-                <!-- [KODE RIWAYAT TETAP SAMA] -->
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
@@ -350,7 +349,7 @@
                     </div>
                 </div>
 
-                <!-- 5. HALAMAN LAPORAN KEUANGAN (BARU) -->
+                <!-- 5. HALAMAN LAPORAN KEUANGAN -->
                 <div v-if="page === 'laporan' && role === 'admin'" class="bg-transparent h-full flex flex-col">
                     <div class="mb-6 flex justify-between items-center">
                         <div>
@@ -397,7 +396,7 @@
 
                     <!-- FORM PENGELUARAN (BAWAH) -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
-                        <!-- Input Pengeluaran -->
+                        <!-- Input Pengeluaran Manual -->
                         <div class="w-full md:w-1/3 bg-slate-50 p-6 border-r border-slate-200">
                             <h3 class="font-bold text-slate-800 mb-4 uppercase tracking-wide text-sm border-b border-slate-200 pb-2"><i class="fas fa-file-invoice-dollar text-rose-500 mr-2"></i>Catat Pengeluaran</h3>
                             <form @submit.prevent="tambahPengeluaran" class="space-y-4">
@@ -571,7 +570,7 @@
                 const filterTransaksi = ref('Semua'); 
                 const filterTanggal = ref('');
 
-                // STATE BARU: Laporan & Pengeluaran
+                // STATE Laporan & Pengeluaran
                 const daftarPengeluaran = ref([]);
                 const formPengeluaran = ref({ keterangan: '', nominal: '' });
 
@@ -629,7 +628,7 @@
                     return result;
                 });
 
-                // COMPUTED BARU: Kalkulasi Laporan Keuangan
+                // Kalkulasi Laporan Keuangan
                 const hitungTotalPemasukan = computed(() => {
                     return daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0);
                 });
@@ -637,7 +636,6 @@
                 const hitungModalTerjual = computed(() => {
                     return daftarTransaksi.value.reduce((sumTrx, t) => {
                         return sumTrx + t.item.reduce((sumItem, item) => {
-                            // Mengambil harga modal dari keranjang (atau 0 jika kosong) dikali kuantitas
                             return sumItem + ((item.hargaModal || 0) * item.qty);
                         }, 0);
                     }, 0);
@@ -723,7 +721,7 @@
                     signOut(auth).then(() => { role.value = null; currentUser.value = ''; cart.value = []; page.value='pos'; });
                 };
 
-                // Fungsi Manajemen Pengeluaran
+                // Fungsi Manajemen Pengeluaran Manual
                 const tambahPengeluaran = async () => {
                     if(!formPengeluaran.value.keterangan || formPengeluaran.value.nominal <= 0) return;
                     await addDoc(collection(db, "pengeluaran"), {
@@ -750,16 +748,40 @@
                     if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id));
                 };
 
+                // REVISI 2: PROSES BARANG MASUK SEKALIGUS MENCATAT PENGELUARAN OTOMATIS
                 const prosesBarangMasuk = async () => {
                     const prodId = formBarangMasuk.value.idProduk;
                     const jumlah = formBarangMasuk.value.jumlah;
+                    
                     if (!prodId || jumlah <= 0) return alert("Pilih produk dan masukkan jumlah yang valid!");
+                    
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
-                        await updateDoc(doc(db, "products", prodId), { stok: prodAsli.stok + jumlah });
-                        alert(`Sukses menambah ${jumlah} stok untuk ${prodAsli.nama}.`);
-                        formBarangMasuk.value = { idProduk: '', jumlah: '' };
-                        page.value = 'produk';
+                        try {
+                            const batch = writeBatch(db);
+                            
+                            // 1. Update Stok Produk
+                            const prodRef = doc(db, "products", prodId);
+                            batch.update(prodRef, { stok: prodAsli.stok + jumlah });
+                            
+                            // 2. Catat Pengeluaran Otomatis (Jumlah Masuk * Harga Modal)
+                            const totalBiayaKulakan = jumlah * prodAsli.hargaModal;
+                            const pengeluaranRef = doc(collection(db, "pengeluaran"));
+                            batch.set(pengeluaranRef, {
+                                keterangan: `Kulakan Stok: ${prodAsli.nama} (${jumlah} item)`,
+                                nominal: totalBiayaKulakan,
+                                tanggal: new Date().toISOString(),
+                                kasir: currentUser.value
+                            });
+
+                            await batch.commit();
+
+                            alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.\nPengeluaran kulakan (Rp ${totalBiayaKulakan.toLocaleString('id-ID')}) telah otomatis dicatat di Laporan Keuangan.`);
+                            formBarangMasuk.value = { idProduk: '', jumlah: '' };
+                            page.value = 'produk';
+                        } catch (error) {
+                            alert("Terjadi kesalahan: " + error.message);
+                        }
                     }
                 };
 
