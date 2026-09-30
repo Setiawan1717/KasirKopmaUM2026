@@ -321,8 +321,8 @@
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
                         <div class="flex items-center">
                             <h2 class="text-xl font-bold text-slate-800 mr-4"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
-                            <button @click="downloadSemuaBarcodePDF" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1">
-                                <i class="fas fa-file-pdf"></i> <span>Unduh Semua Barcode (PDF)</span>
+                            <button @click="downloadSemuaStrukPDF" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1">
+                                <i class="fas fa-file-pdf"></i> <span>Unduh Semua Struk (PDF)</span>
                             </button>
                         </div>
 
@@ -353,7 +353,7 @@
                                     <th class="p-5 font-semibold border-b">Daftar Item</th>
                                     <th class="p-5 font-semibold border-b text-center">Metode</th>
                                     <th class="p-5 font-semibold border-b text-right">Total Transaksi</th>
-                                    <th class="p-5 font-semibold border-b text-center">Barcode Nota</th>
+                                    <th class="p-5 font-semibold border-b text-center">Struk Digital</th>
                                     <th class="p-5 font-semibold border-b text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -377,12 +377,9 @@
                                     </td>
                                     <td class="p-5 font-black text-emerald-600 text-right text-lg">Rp {{ t.total.toLocaleString('id-ID') }}</td>
                                     <td class="p-5 text-center">
-                                        <div class="bg-white border p-2 rounded inline-block">
-                                            <img :src="getBarcodeBase64(t.id)" class="h-10 mx-auto" alt="Barcode">
-                                            <button @click="downloadBarcode(t.id)" class="mt-2 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider block w-full text-center">
-                                                <i class="fas fa-download"></i> Simpan PNG
-                                            </button>
-                                        </div>
+                                        <button @click="downloadStrukPDF(t)" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 shadow-sm mx-auto">
+                                            <i class="fas fa-file-invoice"></i> <span>Unduh PDF</span>
+                                        </button>
                                     </td>
                                     <td class="p-5 text-center">
                                         <button @click="hapusTransaksi(t)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-md text-xs font-bold transition flex items-center space-x-1 shadow-sm mx-auto" title="Hapus transaksi ini dan kembalikan stok barang">
@@ -666,33 +663,98 @@
                     return canvas.toDataURL("image/png");
                 };
 
-                const downloadBarcode = (id) => {
-                    const imgData = getBarcodeBase64(id);
-                    const a = document.createElement("a");
-                    a.href = imgData;
-                    a.download = `Barcode_Nota_${id}.png`;
-                    a.click();
-                };
+                // --- FUNGSI PEMBUAT LAYOUT STRUK PDF ---
+                const buatKontenStrukPDF = (doc, t) => {
+                    let y = 10;
+                    const leftX = 4, rightX = 54, midX = 29;
 
-                const downloadSemuaBarcodePDF = () => {
-                    if(daftarTransaksiTerfilter.value.length === 0) return alert("Tidak ada data transaksi untuk diunduh!");
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF();
-                    doc.setFontSize(16);
-                    doc.text("Kumpulan Barcode Transaksi Kopma UM", 105, 15, { align: "center" });
-                    let yPos = 30; let xPos = 15;
+                    // Header Struk
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(14);
+                    doc.text("KOPMA UM", midX, y, { align: "center" }); y += 4;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(8);
+                    doc.text("Universitas Negeri Malang", midX, y, { align: "center" }); y += 4;
+                    doc.text(`Kasir: ${t.kasir}`, midX, y, { align: "center" }); y += 3;
+                    doc.text(formatTanggal(t.tanggal), midX, y, { align: "center" }); y += 4;
                     
-                    daftarTransaksiTerfilter.value.forEach((t, index) => {
-                        const imgData = getBarcodeBase64(t.id);
-                        doc.setFontSize(8);
-                        doc.text(`${formatTanggal(t.tanggal)} | Kasir: ${t.kasir}`, xPos, yPos - 2);
-                        doc.addImage(imgData, 'PNG', xPos, yPos, 80, 30);
-                        if(index % 2 !== 0) { yPos += 45; xPos = 15; } else { xPos = 110; }
-                        if (yPos > 260) { doc.addPage(); yPos = 30; xPos = 15; }
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`No. Pesanan: ${t.nomorAntrian || '-'}`, midX, y, { align: "center" }); y += 3;
+                    doc.setFont("helvetica", "normal");
+
+                    // Garis Pemisah
+                    y += 2; doc.setLineDashPattern([1, 1], 0); doc.line(leftX, y, rightX, y); y += 4;
+
+                    // Daftar Item
+                    t.item.forEach(item => {
+                        doc.setFont("helvetica", "bold");
+                        const splitTitle = doc.splitTextToSize(item.nama, rightX - leftX);
+                        doc.text(splitTitle, leftX, y);
+                        y += (splitTitle.length * 3) + 1;
+                        doc.setFont("helvetica", "normal");
+                        
+                        doc.text(`${item.qty} x ${item.hargaJual.toLocaleString('id-ID')}`, leftX, y);
+                        doc.text((item.qty * item.hargaJual).toLocaleString('id-ID'), rightX, y, { align: "right" });
+                        y += 4;
                     });
-                    doc.save("Barcode_Semua_Transaksi_Kopma.pdf");
+
+                    // Garis Pemisah
+                    y += 1; doc.line(leftX, y, rightX, y); y += 4;
+
+                    // Kalkulasi Total
+                    doc.text("Subtotal:", leftX, y); doc.text(t.subtotal.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
+                    if(t.diskon > 0) {
+                        doc.text("Diskon:", leftX, y); doc.text("-" + t.diskon.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
+                    }
+                    doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+                    doc.text("TOTAL:", leftX, y); doc.text(t.total.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 4;
+                    doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+
+                    // Garis Pemisah
+                    y += 1; doc.line(leftX, y, rightX, y); y += 4;
+
+                    // Metode & Pembayaran
+                    doc.text("Metode:", leftX, y); doc.text(t.metodeBayar, rightX, y, { align: "right" }); y += 3;
+                    if(t.metodeBayar === 'Tunai') {
+                        doc.text("Bayar:", leftX, y); doc.text((t.uangDiterima || 0).toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
+                        doc.text("Kembali:", leftX, y); doc.text(((t.uangDiterima || 0) - t.total).toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
+                    }
+
+                    // Garis Pemisah & Footer
+                    y += 1; doc.line(leftX, y, rightX, y); y += 5;
+                    doc.text("Terima Kasih Atas Kunjungan Anda", midX, y, { align: "center" }); y += 6;
+
+                    // Sisipkan Barcode di bawah struk digital
+                    try {
+                        const imgData = getBarcodeBase64(t.id);
+                        doc.addImage(imgData, 'PNG', midX - 20, y, 40, 12);
+                    } catch (e) { console.error("Barcode error", e); }
                 };
 
+                // --- FUNGSI UNDUH 1 STRUK ---
+                const downloadStrukPDF = (t) => {
+                    const { jsPDF } = window.jspdf;
+                    // Format khusus selebar kertas struk thermal 58mm
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
+                    buatKontenStrukPDF(doc, t);
+                    doc.save(`Struk_Digital_${t.id}.pdf`);
+                };
+
+                // --- FUNGSI UNDUH & MERGE SEMUA STRUK ---
+                const downloadSemuaStrukPDF = () => {
+                    if(daftarTransaksiTerfilter.value.length === 0) return alert("Tidak ada data transaksi!");
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
+                    
+                    // Looping semua transaksi, buat halaman baru untuk setiap struk
+                    daftarTransaksiTerfilter.value.forEach((t, index) => {
+                        if (index > 0) doc.addPage();
+                        buatKontenStrukPDF(doc, t);
+                    });
+                    
+                    doc.save("Kumpulan_Struk_Transaksi.pdf");
+                };
+                
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
                     if (!keyword) return products.value;
