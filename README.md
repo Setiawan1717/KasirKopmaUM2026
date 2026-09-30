@@ -1,1 +1,0 @@
-# KasirKopmaUM2026
