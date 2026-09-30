@@ -14,15 +14,32 @@
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 58mm; padding: 2mm; font-family: monospace; font-size: 12px; color: black; background: white;}
-            .no-print { display: none !important; }
-        }
-    </style>
-</head>
-<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex">
-    <div id="app" v-cloak class="flex w-full min-h-screen">
+    /* Mengatur margin kertas bawaan browser menjadi nol */
+    @page {
+        margin: 0; 
+    }
+
+    /* Memaksa tinggi body menyesuaikan konten (tidak dipaksa panjang) */
+    html, body {
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    /* Memastikan kontainer struk tidak memiliki margin bawah yang berlebih */
+    .container-struk { /* Ganti dengan class pembungkus struk kamu */
+        height: auto !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* Sembunyikan tombol print, navigasi, atau elemen web lainnya */
+    .sembunyikan-saat-print {
+        display: none !important;
+    }
+}
+
 
         <!-- ========================================== -->
         <!-- SIDEBAR (MENU KIRI) -->
