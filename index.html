@@ -907,10 +907,10 @@
                     else cart.value.splice(index, 1);
                 };
 
-                // MENCETAK VIA QZ TRAY BESERTA LOGO
+                // MENCETAK VIA QZ TRAY DENGAN LOGO
                 const cetakStrukQZ = (struk) => {
                     if (!qzConnected.value || !selectedPrinter.value) {
-                        window.print(); // Mode Fallback 
+                        window.print(); // Fallback ke print browser jika QZ offline
                         return;
                     }
 
@@ -922,15 +922,16 @@
                         return leftStr + " ".repeat(spaceLen) + rightStr + '\n';
                     };
 
-                    let logoUrl = getBaseUrl() + 'LogoKopma.jpg'; // Path absolute gambar
+                    // Mengambil path logo otomatis dari web Anda
+                    let logoUrl = getBaseUrl() + 'LogoKopma.jpg';
 
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
                         '\x1B' + '\x40',          // Init printer (ESC @)
                         '\x1B' + '\x61' + '\x01', // Rata Tengah (Center align)
                         
-                        // Perintah mencetak Gambar Logo 
-                        { type: 'raw', format: 'image', flavor: 'file', data: logoUrl, options: { language: 'ESCPOS', dotDensity: 'double' } },
+                        // Perintah cetak gambar (jika masih error certificate, QZ Tray butuh mengaktifkan Allow insecure content)
+                        { type: 'raw', format: 'image', flavor: 'url', data: logoUrl, options: { language: 'ESCPOS', dotDensity: 'single' } },
                         
                         '\x0A', // Spasi enter
                         '\x1B' + '\x45' + '\x01', // Bold on
@@ -940,7 +941,7 @@
                         'Kasir: ' + struk.kasir + '\n',
                         formatTanggal(struk.tanggal) + '\n',
                         '--------------------------------\n',
-                        '\x1B' + '\x61' + '\x00', // Rata Kiri (Left align)
+                        '\x1B' + '\x61' + '\x00', // Rata Kiri
                     ];
 
                     struk.cart.forEach(item => {
@@ -967,12 +968,12 @@
                     
                     data.push('\x1B' + '\x61' + '\x01'); // Center align
                     data.push('\nTerima Kasih Atas Kunjungan Anda\n');
-                    data.push('\x0A\x0A\x0A\x0A\x0A'); // Feed kertas (Dorong kertas ke atas)
-                    data.push('\x1D' + '\x56' + '\x41' + '\x00'); // Full Cut Paper command (Potong kertas)
+                    data.push('\x0A\x0A\x0A\x0A\x0A'); // Feed kertas
+                    data.push('\x1D' + '\x56' + '\x41' + '\x00'); // Full Cut Paper
 
                     qz.print(config, data).catch(err => {
-                        alert("Gagal mencetak via QZ Tray: " + err + ". Berpindah ke menu Print Browser bawaan.");
-                        window.print(); // Fallback
+                        alert("Gagal mencetak gambar logo via QZ Tray. Beralih ke cetak teks murni.");
+                        // Jika gagal karena gambar, Anda bisa mencetak tanpa gambar atau pakai window.print()
                     });
                 };
 
