@@ -320,7 +320,7 @@
                     </div>
                 </div>
 
-                <!-- 4. HALAMAN RIWAYAT TRANSAKSI DENGAN BARCODE -->
+                <!-- 4. HALAMAN RIWAYAT TRANSAKSI DENGAN PDF -->
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
                         <div class="flex items-center">
@@ -363,7 +363,7 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="t in daftarTransaksiTerfilter" :key="t.id" class="hover:bg-slate-50 transition text-sm text-slate-700">
-                                    <td class="p-5 font-medium">{{ formatTanggal(t.tanggal) }}</td>
+                                    <td class="p-5 font-medium">{{ formatTanggal(t.tanggal) }}<br><span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold">No: {{ t.nomorAntrian || '-' }}</span></td>
                                     <td class="p-5 font-bold capitalize"><div class="flex items-center space-x-2"><div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">{{ t.kasir.charAt(0) }}</div><span>{{ t.kasir }}</span></div></td>
                                     <td class="p-5">
                                         <div class="bg-white border border-slate-100 rounded-lg p-3 max-h-32 overflow-y-auto shadow-inner">
@@ -561,7 +561,7 @@
                 <div style="display: flex; justify-content: space-between;" v-if="strukAktif.metodeBayar === 'Tunai'"><span>Bayar:</span><span>{{ strukAktif.uangDiterima }}</span></div>
                 <div style="display: flex; justify-content: space-between;" v-if="strukAktif.metodeBayar === 'Tunai'"><span>Kembali:</span><span>{{ strukAktif.kembalian }}</span></div>
             </div>
-            <p style="text-align: center; font-size: 10px; margin-top: 10px;">Terima Kasih Atas Kunjungan Nice</p>
+            <p style="text-align: center; font-size: 10px; margin-top: 10px;">Terima Kasih Atas Kunjungan Anda</p>
         </div>
     </div>
 
@@ -607,9 +607,10 @@
                 
                 const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' });
                 const formBarangMasuk = ref({ idProduk: '', jumlah: '' });
+                
                 const editMode = ref(false);
                 const editId = ref(null);
-                
+
                 const daftarTransaksi = ref([]);
                 const filterTransaksi = ref('Semua'); 
                 const filterTanggal = ref('');
@@ -674,7 +675,6 @@
                     let y = 10;
                     const leftX = 4, rightX = 54, midX = 29;
 
-                    // Header Struk
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(14);
                     doc.text("KOPMA UM", midX, y, { align: "center" }); y += 4;
@@ -688,10 +688,8 @@
                     doc.text(`No. Pesanan: ${t.nomorAntrian || '-'}`, midX, y, { align: "center" }); y += 3;
                     doc.setFont("helvetica", "normal");
 
-                    // Garis Pemisah
                     y += 2; doc.setLineDashPattern([1, 1], 0); doc.line(leftX, y, rightX, y); y += 4;
 
-                    // Daftar Item
                     t.item.forEach(item => {
                         doc.setFont("helvetica", "bold");
                         const splitTitle = doc.splitTextToSize(item.nama, rightX - leftX);
@@ -704,10 +702,8 @@
                         y += 4;
                     });
 
-                    // Garis Pemisah
                     y += 1; doc.line(leftX, y, rightX, y); y += 4;
 
-                    // Kalkulasi Total
                     doc.text("Subtotal:", leftX, y); doc.text(t.subtotal.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
                     if(t.diskon > 0) {
                         doc.text("Diskon:", leftX, y); doc.text("-" + t.diskon.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
@@ -716,21 +712,17 @@
                     doc.text("TOTAL:", leftX, y); doc.text(t.total.toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 4;
                     doc.setFont("helvetica", "normal"); doc.setFontSize(8);
 
-                    // Garis Pemisah
                     y += 1; doc.line(leftX, y, rightX, y); y += 4;
 
-                    // Metode & Pembayaran
                     doc.text("Metode:", leftX, y); doc.text(t.metodeBayar, rightX, y, { align: "right" }); y += 3;
                     if(t.metodeBayar === 'Tunai') {
                         doc.text("Bayar:", leftX, y); doc.text((t.uangDiterima || 0).toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
                         doc.text("Kembali:", leftX, y); doc.text(((t.uangDiterima || 0) - t.total).toLocaleString('id-ID'), rightX, y, { align: "right" }); y += 3;
                     }
 
-                    // Garis Pemisah & Footer
                     y += 1; doc.line(leftX, y, rightX, y); y += 5;
                     doc.text("Terima Kasih Atas Kunjungan Anda", midX, y, { align: "center" }); y += 6;
 
-                    // Sisipkan Barcode di bawah struk digital
                     try {
                         const imgData = getBarcodeBase64(t.id);
                         doc.addImage(imgData, 'PNG', midX - 20, y, 40, 12);
@@ -740,7 +732,6 @@
                 // --- FUNGSI UNDUH 1 STRUK ---
                 const downloadStrukPDF = (t) => {
                     const { jsPDF } = window.jspdf;
-                    // Format khusus selebar kertas struk thermal 58mm
                     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
                     buatKontenStrukPDF(doc, t);
                     doc.save(`Struk_Digital_${t.id}.pdf`);
@@ -752,7 +743,6 @@
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
                     
-                    // Looping semua transaksi, buat halaman baru untuk setiap struk
                     daftarTransaksiTerfilter.value.forEach((t, index) => {
                         if (index > 0) doc.addPage();
                         buatKontenStrukPDF(doc, t);
@@ -760,7 +750,7 @@
                     
                     doc.save("Kumpulan_Struk_Transaksi.pdf");
                 };
-                
+
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
                     if (!keyword) return products.value;
@@ -847,36 +837,32 @@
                 };
                 
                 const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
-
+                
                 const siapkanEdit = (p) => {
                     editMode.value = true;
                     editId.value = p.id;
-                    // Mengisi form dengan data produk yang diklik
                     formProduk.value = { barcode: p.barcode || '', nama: p.nama, kategori: p.kategori, hargaModal: p.hargaModal, hargaJual: p.hargaJual, stok: p.stok };
-                    window.scrollTo({ top: 0, behavior: 'smooth' }); // Otomatis scroll ke atas
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 };
 
                 const batalEdit = () => {
                     editMode.value = false;
                     editId.value = null;
-                    // Mengosongkan form kembali
                     formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
                 };
 
                 const simpanProduk = async () => {
                     if (editMode.value) {
-                    // Jika sedang mode edit, update data di Firebase
-                    await updateDoc(doc(db, "products", editId.value), formProduk.value);
-                    alert("Data produk berhasil diperbarui!");
-                    batalEdit(); // Kembalikan ke form tambah biasa
-                } else {
-                    // Jika tidak, tambahkan produk baru seperti biasa
-                    await addDoc(collection(db, "products"), formProduk.value);
-                    alert("Produk berhasil ditambahkan!");
-                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
-                }
-            };
-                
+                        await updateDoc(doc(db, "products", editId.value), formProduk.value);
+                        alert("Data produk berhasil diperbarui!");
+                        batalEdit();
+                    } else {
+                        await addDoc(collection(db, "products"), formProduk.value);
+                        alert("Produk berhasil ditambahkan!");
+                        formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
+                    }
+                };
+
                 const hapusProduk = async (id) => { if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id)); };
 
                 const prosesBarangMasuk = async () => {
@@ -915,7 +901,7 @@
                     else cart.value.splice(index, 1);
                 };
 
-                // MENCETAK VIA QZ TRAY DENGAN LOGO HITAM PUTIH (MONOKROM)
+                // MENCETAK VIA QZ TRAY DENGAN LOGO HITAM PUTIH KECIL (RESIZE CANVAS)
                 const cetakStrukQZ = async (struk) => {
                     if (!qzConnected.value || !selectedPrinter.value) {
                         window.print(); 
@@ -942,16 +928,13 @@
                             img.crossOrigin = "Anonymous";
                             img.onload = () => {
                                 let canvas = document.createElement("canvas");
-                                // 100 pixel adalah ukuran yang pas untuk printer 58mm (sebesar teks tebal)
-                                // Anda bisa mengubah angka 100 di bawah ini jika masih kurang pas
-                                let targetWidth = 100; 
+                                let targetWidth = 100; // Lebar logo paksa (pas untuk 58mm)
                                 let targetHeight = (img.height / img.width) * targetWidth;
                                 
                                 canvas.width = targetWidth;
                                 canvas.height = targetHeight;
                                 let ctx = canvas.getContext("2d");
                                 
-                                // Beri background putih agar tidak jadi blok hitam
                                 ctx.fillStyle = "#FFFFFF";
                                 ctx.fillRect(0, 0, targetWidth, targetHeight);
                                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
@@ -964,20 +947,21 @@
                     } catch (e) {
                         console.warn("Logo gagal dimuat, melanjutkan cetak tanpa logo:", e);
                     }
+
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
                         '\x1B' + '\x40',          // Init printer (ESC @)
                         '\x1B' + '\x61' + '\x01', // Rata Tengah
                     ];
 
-                    // Jika logo hitam putih berhasil diambil, selipkan perintah cetak gambar
+                    // Sisipkan logo yang sudah di-resize
                     if (logoBase64) {
                         data.push({
                             type: 'raw',
                             format: 'image',
                             flavor: 'base64',
                             data: logoBase64.split(',')[1],
-                            options: { language: 'ESCPOS', dotDensity: 'single', width: '7mm' }
+                            options: { language: 'ESCPOS', dotDensity: 'single' }
                         });
                         data.push('\x0A'); // Spasi enter
                     }
@@ -1041,7 +1025,7 @@
                         return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
                     }).length;
                     
-                    const nomorAntrian = hitungTrxHariIni + 1; // Ditambah 1 untuk transaksi yang sedang dibuat
+                    const nomorAntrian = hitungTrxHariIni + 1; // Ditambah 1 untuk urutan transaksi ini
 
                     const batch = writeBatch(db);
                     cart.value.forEach(item => {
@@ -1058,7 +1042,7 @@
                         tanggal: tgl, kasir: namaKasirRealTime, item: cart.value,
                         subtotal: subtotal.value, diskon: diskon.value, total: total.value,
                         metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value,
-                        nomorAntrian: nomorAntrian // Simpan nomor urut ke database
+                        nomorAntrian: nomorAntrian
                     });
 
                     await batch.commit();
@@ -1066,7 +1050,7 @@
                     strukAktif.value = {
                         tanggal: tgl, cart: [...cart.value], subtotal: subtotal.value, diskon: diskon.value, total: total.value,
                         metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime,
-                        nomorAntrian: nomorAntrian // Masukkan ke data cetak
+                        nomorAntrian: nomorAntrian
                     };
 
                     setTimeout(() => {
@@ -1074,7 +1058,7 @@
                         cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
                     }, 500);
                 };
-                
+
                 const hapusTransaksi = async (transaksi) => {
                     if(confirm("Yakin ingin MENGHAPUS transaksi ini?\n\nCATATAN: Stok barang dari transaksi ini akan otomatis dikembalikan ke Master Produk.")) {
                         try {
@@ -1096,9 +1080,9 @@
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
-                    setUang, bukaFormDaftar, prosesAuth, logout, tambahProduk, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
-                    qzConnected, daftarPrinter, selectedPrinter,
-                    getBarcodeBase64, downloadBarcode, downloadSemuaBarcodePDF
+                    setUang, bukaFormDaftar, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
+                    qzConnected, daftarPrinter, selectedPrinter, getBarcodeBase64,
+                    editMode, batalEdit, siapkanEdit, simpanProduk, downloadStrukPDF, downloadSemuaStrukPDF
                 };
             }
         }).mount('#app');
