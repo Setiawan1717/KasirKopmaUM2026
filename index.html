@@ -835,26 +835,40 @@
                         return leftStr + " ".repeat(spaceLen) + rightStr + '\n';
                     };
 
-                    // Ambil file logo hitam putih dari GitHub
+                    // Ambil dan resize file logo secara paksa (Anti Gagal)
                     let logoBase64 = null;
                     try {
                         let url = window.location.href.split('?')[0];
                         if (url.endsWith('.html')) url = url.substring(0, url.lastIndexOf('/') + 1);
                         if (!url.endsWith('/')) url += '/';
                         
-                        let response = await fetch(url + 'LogoKopmaHitamPutih.png');
-                        if (response.ok) {
-                            let blob = await response.blob();
-                            logoBase64 = await new Promise((resolve) => {
-                                let reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result);
-                                reader.readAsDataURL(blob);
-                            });
-                        }
+                        logoBase64 = await new Promise((resolve, reject) => {
+                            let img = new Image();
+                            img.crossOrigin = "Anonymous";
+                            img.onload = () => {
+                                let canvas = document.createElement("canvas");
+                                // 100 pixel adalah ukuran yang pas untuk printer 58mm (sebesar teks tebal)
+                                // Anda bisa mengubah angka 100 di bawah ini jika masih kurang pas
+                                let targetWidth = 100; 
+                                let targetHeight = (img.height / img.width) * targetWidth;
+                                
+                                canvas.width = targetWidth;
+                                canvas.height = targetHeight;
+                                let ctx = canvas.getContext("2d");
+                                
+                                // Beri background putih agar tidak jadi blok hitam
+                                ctx.fillStyle = "#FFFFFF";
+                                ctx.fillRect(0, 0, targetWidth, targetHeight);
+                                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                                
+                                resolve(canvas.toDataURL("image/png"));
+                            };
+                            img.onerror = () => reject("Gambar gagal dimuat");
+                            img.src = url + 'LogoKopmaHitamPutih.png';
+                        });
                     } catch (e) {
                         console.warn("Logo gagal dimuat, melanjutkan cetak tanpa logo:", e);
                     }
-
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
                         '\x1B' + '\x40',          // Init printer (ESC @)
