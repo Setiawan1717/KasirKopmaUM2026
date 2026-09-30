@@ -30,7 +30,7 @@
         <aside class="w-64 bg-[#1e293b] text-white flex flex-col no-print shadow-xl z-20 flex-shrink-0 sticky top-0 h-screen">
             <div class="p-5 flex items-center space-x-3 border-b border-slate-700">
                 <img src="LogoKopma.jpg" alt="Logo Kopma UM" class="h-8 w-8 object-contain">
-                <h1 class="text-xl font-bold tracking-wider">Kasir Kopma UM 2026</h1>
+                <h1 class="text-xl font-bold tracking-wider">POS Web</h1>
             </div>
 
             <div class="p-4 flex-1 overflow-y-auto">
@@ -56,7 +56,7 @@
                             <i class="fas fa-history w-5 text-center"></i><span class="font-medium">Riwayat Transaksi</span>
                         </button>
                     </li>
-                    <!-- REVISI 1: TAMPILAN MENU LAPORAN DISEPADANKAN (TIDAK ADA KOTAK/BORDER/GRADASI) -->
+                    <!-- REVISI 1: MENU LAPORAN SEKARANG TRANSPARAN SESUAI TEMA BAWAAN -->
                     <li v-if="role === 'admin'">
                         <button @click="page = 'laporan'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-chart-pie w-5 text-center"></i><span class="font-medium">Laporan Keuangan</span>
@@ -285,9 +285,8 @@
                                 <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
                                     <i class="fas fa-plus-circle"></i> <span>Tambahkan Stok ke Gudang</span>
                                 </button>
-                                <!-- Info tambahan untuk meyakinkan pengguna -->
-                                <p class="text-xs text-slate-500 text-center mt-2"><i class="fas fa-info-circle"></i> Proses ini akan otomatis mencatat biaya kulakan ke dalam Pengeluaran.</p>
                             </form>
+                            <p class="text-xs text-slate-400 text-center mt-4"><i class="fas fa-info-circle"></i> Nilai stok akan otomatis dicatat sebagai Pengeluaran Modal.</p>
                         </div>
                     </div>
                 </div>
@@ -296,7 +295,15 @@
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
+                        
                         <div class="flex flex-wrap items-center gap-3">
+                            <!-- REVISI 3: TOTAL NOMINAL RIWAYAT DI SAMPING KIRI TANGGAL -->
+                            <div class="flex items-center bg-emerald-50 border border-emerald-200 py-1.5 px-3 rounded-lg shadow-sm">
+                                <i class="fas fa-wallet text-emerald-600 mr-2 text-sm"></i>
+                                <span class="text-xs font-bold text-emerald-700 mr-1 uppercase">Total:</span>
+                                <span class="text-sm font-black text-emerald-800">Rp {{ totalNominalRiwayat.toLocaleString('id-ID') }}</span>
+                            </div>
+
                             <div class="flex items-center bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
                                 <span class="text-sm font-bold text-slate-500 px-3"><i class="fas fa-calendar-alt mr-1"></i> Tanggal:</span>
                                 <input type="date" v-model="filterTanggal" class="px-2 py-1.5 text-sm font-bold text-slate-700 focus:outline-none bg-transparent cursor-pointer rounded">
@@ -402,7 +409,7 @@
                             <form @submit.prevent="tambahPengeluaran" class="space-y-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-600 mb-1">Keterangan Biaya</label>
-                                    <input v-model="formPengeluaran.keterangan" required placeholder="Cth: Beli Kantong Plastik" class="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 text-sm">
+                                    <input v-model="formPengeluaran.keterangan" required placeholder="Cth: Bayar Listrik Koperasi" class="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-slate-600 mb-1">Nominal (Rp)</label>
@@ -628,6 +635,11 @@
                     return result;
                 });
 
+                // REVISI 3: KALKULASI TOTAL NOMINAL TRANSAKSI DI RIWAYAT
+                const totalNominalRiwayat = computed(() => {
+                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
+                });
+
                 // Kalkulasi Laporan Keuangan
                 const hitungTotalPemasukan = computed(() => {
                     return daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0);
@@ -765,14 +777,16 @@
                             batch.update(prodRef, { stok: prodAsli.stok + jumlah });
                             
                             // 2. Catat Pengeluaran Otomatis (Jumlah Masuk * Harga Modal)
-                            const totalBiayaKulakan = jumlah * prodAsli.hargaModal;
-                            const pengeluaranRef = doc(collection(db, "pengeluaran"));
-                            batch.set(pengeluaranRef, {
-                                keterangan: `Kulakan Stok: ${prodAsli.nama} (${jumlah} item)`,
-                                nominal: totalBiayaKulakan,
-                                tanggal: new Date().toISOString(),
-                                kasir: currentUser.value
-                            });
+                            const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
+                            if (totalBiayaKulakan > 0) {
+                                const pengeluaranRef = doc(collection(db, "pengeluaran"));
+                                batch.set(pengeluaranRef, {
+                                    keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`,
+                                    nominal: totalBiayaKulakan,
+                                    tanggal: new Date().toISOString(),
+                                    kasir: currentUser.value
+                                });
+                            }
 
                             await batch.commit();
 
@@ -865,7 +879,7 @@
                 return {
                     isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts, 
                     formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
-                    daftarTransaksi, daftarPengeluaran, formPengeluaran,
+                    daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
                     setUang, bukaFormDaftar, prosesAuth, logout, tambahProduk, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran
