@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS Web - Kopma UM</title>
+    
     <!-- Library CSS & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Library QZ Tray untuk Direct Raw Printing -->
-    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script>
+    
+    <!-- Library Eksternal Canggih -->
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script> <!-- QZ Tray Printer -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script> <!-- Barcode Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- Ekspor PDF -->
     
     <style>
         [v-cloak] { display: none; }
@@ -20,7 +24,7 @@
         /* Fallback Print Browser (Jika QZ Tray mati) */
         @media print {
             @page { margin: 0; }
-            html, body { height: auto !important; margin: 0 !important; padding: 0 !important; overflow: hidden; }
+            html, body { height: auto !important; margin: 0 !important; padding: 0 !important; overflow: hidden; background: white;}
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
             #print-area { position: absolute; left: 0; top: 0; width: 58mm; height: auto !important; margin-bottom: 0 !important; padding: 2mm; padding-bottom: 0 !important; font-family: monospace; font-size: 12px; color: black; background: white;}
@@ -219,7 +223,6 @@
                                         <option value="">-- Pilih Printer --</option>
                                         <option v-for="p in daftarPrinter" :key="p" :value="p">{{ p }}</option>
                                     </select>
-                                    <p v-if="!qzConnected" class="text-[10px] text-rose-500 mt-1 italic"><i class="fas fa-exclamation-triangle"></i> Buka aplikasi QZ Tray di PC Anda agar terhubung.</p>
                                 </div>
 
                                 <button @click="simpanTransaksi" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-lg">
@@ -313,10 +316,16 @@
                     </div>
                 </div>
 
-                <!-- 4. HALAMAN RIWAYAT TRANSAKSI -->
+                <!-- 4. HALAMAN RIWAYAT TRANSAKSI DENGAN BARCODE -->
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4">
-                        <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
+                        <div class="flex items-center">
+                            <h2 class="text-xl font-bold text-slate-800 mr-4"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
+                            <button @click="downloadSemuaBarcodePDF" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1">
+                                <i class="fas fa-file-pdf"></i> <span>Unduh Semua Barcode (PDF)</span>
+                            </button>
+                        </div>
+
                         <div class="flex flex-wrap items-center gap-3">
                             <div class="flex items-center bg-emerald-50 border border-emerald-200 py-1.5 px-3 rounded-lg shadow-sm">
                                 <i class="fas fa-wallet text-emerald-600 mr-2 text-sm"></i>
@@ -336,10 +345,16 @@
                         </div>
                     </div>
                     <div class="p-0 overflow-x-auto">
-                        <table class="w-full text-left border-collapse min-w-[800px]">
+                        <table class="w-full text-left border-collapse min-w-[1000px]">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 text-sm uppercase tracking-wider">
-                                    <th class="p-5 font-semibold border-b">Waktu & Tanggal</th><th class="p-5 font-semibold border-b">Kasir</th><th class="p-5 font-semibold border-b">Daftar Item</th><th class="p-5 font-semibold border-b text-center">Metode Pembayaran</th><th class="p-5 font-semibold border-b text-right">Total Transaksi</th><th class="p-5 font-semibold border-b text-center">Aksi</th>
+                                    <th class="p-5 font-semibold border-b">Waktu & Tanggal</th>
+                                    <th class="p-5 font-semibold border-b">Kasir</th>
+                                    <th class="p-5 font-semibold border-b">Daftar Item</th>
+                                    <th class="p-5 font-semibold border-b text-center">Metode</th>
+                                    <th class="p-5 font-semibold border-b text-right">Total Transaksi</th>
+                                    <th class="p-5 font-semibold border-b text-center">Barcode Nota</th>
+                                    <th class="p-5 font-semibold border-b text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -361,8 +376,16 @@
                                         </span>
                                     </td>
                                     <td class="p-5 font-black text-emerald-600 text-right text-lg">Rp {{ t.total.toLocaleString('id-ID') }}</td>
-                                    <td class="p-5 flex justify-center items-center">
-                                        <button @click="hapusTransaksi(t)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-md text-xs font-bold transition flex items-center space-x-1 shadow-sm" title="Hapus transaksi ini dan kembalikan stok barang">
+                                    <td class="p-5 text-center">
+                                        <div class="bg-white border p-2 rounded inline-block">
+                                            <img :src="getBarcodeBase64(t.id)" class="h-10 mx-auto" alt="Barcode">
+                                            <button @click="downloadBarcode(t.id)" class="mt-2 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider block w-full text-center">
+                                                <i class="fas fa-download"></i> Simpan PNG
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="p-5 text-center">
+                                        <button @click="hapusTransaksi(t)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-md text-xs font-bold transition flex items-center space-x-1 shadow-sm mx-auto" title="Hapus transaksi ini dan kembalikan stok barang">
                                             <i class="fas fa-trash-alt"></i> <span>Hapus</span>
                                         </button>
                                     </td>
@@ -386,13 +409,11 @@
 
                     <!-- KARTU LABA BERSIH & KOTOR (BAGIAN ATAS) -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <!-- Laba Bersih -->
                         <div class="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-8 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-center min-h-[160px]">
                             <p class="text-emerald-100 font-bold tracking-widest uppercase text-sm mb-2 relative z-10"><i class="fas fa-wallet mr-1"></i> Laba Bersih</p>
                             <h1 class="text-5xl md:text-6xl font-black relative z-10 truncate" :title="'Rp ' + hitungLabaBersih.toLocaleString('id-ID')">Rp {{ hitungLabaBersih.toLocaleString('id-ID') }}</h1>
                             <i class="fas fa-hand-holding-usd absolute -right-6 -bottom-6 text-9xl opacity-20 transform -rotate-12"></i>
                         </div>
-                        <!-- Laba Kotor -->
                         <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-8 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-center min-h-[160px]">
                             <p class="text-blue-100 font-bold tracking-widest uppercase text-sm mb-2 relative z-10"><i class="fas fa-chart-pie mr-1"></i> Laba Kotor</p>
                             <h1 class="text-5xl font-black relative z-10 truncate" :title="'Rp ' + hitungLabaKotor.toLocaleString('id-ID')">Rp {{ hitungLabaKotor.toLocaleString('id-ID') }}</h1>
@@ -422,7 +443,6 @@
 
                     <!-- FORM PENGELUARAN (BAWAH) -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
-                        <!-- Input Pengeluaran Manual -->
                         <div class="w-full md:w-1/3 bg-slate-50 p-6 border-r border-slate-200">
                             <h3 class="font-bold text-slate-800 mb-4 uppercase tracking-wide text-sm border-b border-slate-200 pb-2"><i class="fas fa-file-invoice-dollar text-rose-500 mr-2"></i>Catat Pengeluaran</h3>
                             <form @submit.prevent="tambahPengeluaran" class="space-y-4">
@@ -443,15 +463,11 @@
                             </form>
                         </div>
                         
-                        <!-- Tabel Riwayat Pengeluaran -->
                         <div class="w-full md:w-2/3 p-0 overflow-y-auto max-h-[300px]">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="bg-white text-slate-500 text-xs uppercase tracking-wider sticky top-0 shadow-sm">
-                                        <th class="p-4 font-semibold border-b">Tanggal</th>
-                                        <th class="p-4 font-semibold border-b">Keterangan</th>
-                                        <th class="p-4 font-semibold border-b text-right">Nominal</th>
-                                        <th class="p-4 font-semibold border-b text-center">Aksi</th>
+                                        <th class="p-4 font-semibold border-b">Tanggal</th><th class="p-4 font-semibold border-b">Keterangan</th><th class="p-4 font-semibold border-b text-right">Nominal</th><th class="p-4 font-semibold border-b text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
@@ -465,9 +481,7 @@
                                     </tr>
                                 </tbody>
                             </table>
-                            <div v-if="daftarPengeluaran.length === 0" class="text-center p-10 text-slate-400 text-sm">
-                                Belum ada catatan pengeluaran.
-                            </div>
+                            <div v-if="daftarPengeluaran.length === 0" class="text-center p-10 text-slate-400 text-sm">Belum ada catatan pengeluaran.</div>
                         </div>
                     </div>
                 </div>
@@ -514,7 +528,6 @@
                     <button @click="bukaFormDaftar" class="hover:text-blue-600 transition inline-flex items-center space-x-1 font-medium bg-slate-50 px-4 py-2 rounded-full border border-slate-200 hover:border-blue-300">
                         <i class="fas fa-cog"></i><span>{{ isLoginMode ? 'Manajemen Akun (Khusus Pemilik)' : 'Batal & Kembali ke Halaman Login' }}</span>
                     </button>
-                    <p class="mt-4 text-[11px] opacity-70 flex justify-center items-center"><i class="fas fa-cloud text-blue-400 mr-1"></i> Data tersimpan aman di Firebase Firestore</p>
                 </div>
             </div>
         </div>
@@ -524,9 +537,10 @@
         <!-- ========================================== -->
         <div id="print-area" v-if="strukAktif">
             <div style="text-align: center; border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
+                <img src="LogoKopma.jpg" style="width: 45px; margin: 0 auto 5px auto; display: block;" alt="Logo">
                 <h3 style="margin:0; font-size: 16px; font-weight: bold;">KOPMA UM</h3>
                 <p style="margin:0; font-size: 10px;">Universitas Negeri Malang</p>
-                <p style="margin:0; font-size: 10px;">Kasir: <span class="capitalize">{{ currentUser }}</span></p>
+                <p style="margin:0; font-size: 10px;">Kasir: <span class="capitalize">{{ strukAktif.kasir }}</span></p>
                 <p style="margin:0; font-size: 10px;">{{ formatTanggal(strukAktif.tanggal) }}</p>
             </div>
             <div style="border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
@@ -599,27 +613,24 @@
                 const daftarPengeluaran = ref([]);
                 const formPengeluaran = ref({ keterangan: '', nominal: '' });
 
-                // STATE QZ TRAY PRINTER
                 const qzConnected = ref(false);
                 const daftarPrinter = ref([]);
                 const selectedPrinter = ref('');
 
-                // INISIALISASI QZ TRAY
                 const initQZ = () => {
                     qz.websocket.connect().then(() => {
                         qzConnected.value = true;
                         return qz.printers.find();
                     }).then((printers) => {
                         daftarPrinter.value = printers;
-                        // Pilih otomatis printer berbau '58'
                         const defaultPrinter = printers.find(p => p.toLowerCase().includes('xp-58') || p.toLowerCase().includes('pos-58'));
                         if (defaultPrinter) {
                             selectedPrinter.value = defaultPrinter;
                         } else if (printers.length > 0) {
-                            selectedPrinter.value = printers[0]; // Fallback ke printer pertama
+                            selectedPrinter.value = printers[0];
                         }
                     }).catch((err) => {
-                        console.warn("QZ Tray tidak aktif atau belum diinstal. Berjalan tanpa print raw ESC/POS.");
+                        console.warn("QZ Tray tidak aktif.");
                         qzConnected.value = false;
                     });
                 };
@@ -645,18 +656,46 @@
                         daftarPengeluaran.value = tempPeng;
                     });
 
-                    // Panggil inisialisasi QZ saat web terbuka
                     initQZ();
                 });
+
+                const getBarcodeBase64 = (text) => {
+                    const canvas = document.createElement("canvas");
+                    JsBarcode(canvas, text, { format: "CODE128", displayValue: true, height: 40, width: 1.5, fontSize: 12, margin: 5 });
+                    return canvas.toDataURL("image/png");
+                };
+
+                const downloadBarcode = (id) => {
+                    const imgData = getBarcodeBase64(id);
+                    const a = document.createElement("a");
+                    a.href = imgData;
+                    a.download = `Barcode_Nota_${id}.png`;
+                    a.click();
+                };
+
+                const downloadSemuaBarcodePDF = () => {
+                    if(daftarTransaksiTerfilter.value.length === 0) return alert("Tidak ada data transaksi untuk diunduh!");
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    doc.setFontSize(16);
+                    doc.text("Kumpulan Barcode Transaksi Kopma UM", 105, 15, { align: "center" });
+                    let yPos = 30; let xPos = 15;
+                    
+                    daftarTransaksiTerfilter.value.forEach((t, index) => {
+                        const imgData = getBarcodeBase64(t.id);
+                        doc.setFontSize(8);
+                        doc.text(`${formatTanggal(t.tanggal)} | Kasir: ${t.kasir}`, xPos, yPos - 2);
+                        doc.addImage(imgData, 'PNG', xPos, yPos, 80, 30);
+                        if(index % 2 !== 0) { yPos += 45; xPos = 15; } else { xPos = 110; }
+                        if (yPos > 260) { doc.addPage(); yPos = 30; xPos = 15; }
+                    });
+                    doc.save("Barcode_Semua_Transaksi_Kopma.pdf");
+                };
 
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
                     if (!keyword) return products.value;
-                    return products.value.filter(p => {
-                        const matchNama = p.nama.toLowerCase().includes(keyword);
-                        const matchBarcode = p.barcode && p.barcode.toLowerCase().includes(keyword);
-                        return matchNama || matchBarcode;
-                    });
+                    return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
                 });
 
                 const subtotal = computed(() => cart.value.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0));
@@ -669,42 +708,18 @@
                     if (filterTanggal.value) {
                         result = result.filter(t => {
                             const dateObj = new Date(t.tanggal);
-                            const yyyy = dateObj.getFullYear();
-                            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-                            const dd = String(dateObj.getDate()).padStart(2, '0');
-                            return `${yyyy}-${mm}-${dd}` === filterTanggal.value;
+                            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === filterTanggal.value;
                         });
                     }
                     return result;
                 });
 
-                const totalNominalRiwayat = computed(() => {
-                    return daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0);
-                });
-
-                const hitungTotalPemasukan = computed(() => {
-                    return daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0);
-                });
-                
-                const hitungModalTerjual = computed(() => {
-                    return daftarTransaksi.value.reduce((sumTrx, t) => {
-                        return sumTrx + t.item.reduce((sumItem, item) => {
-                            return sumItem + ((item.hargaModal || 0) * item.qty);
-                        }, 0);
-                    }, 0);
-                });
-
-                const hitungTotalPengeluaran = computed(() => {
-                    return daftarPengeluaran.value.reduce((sum, p) => sum + p.nominal, 0);
-                });
-
-                const hitungLabaKotor = computed(() => {
-                    return hitungTotalPemasukan.value - hitungModalTerjual.value;
-                });
-
-                const hitungLabaBersih = computed(() => {
-                    return hitungLabaKotor.value - hitungTotalPengeluaran.value;
-                });
+                const totalNominalRiwayat = computed(() => daftarTransaksiTerfilter.value.reduce((sum, t) => sum + (t.total || 0), 0));
+                const hitungTotalPemasukan = computed(() => daftarTransaksi.value.reduce((sum, t) => sum + t.total, 0));
+                const hitungModalTerjual = computed(() => daftarTransaksi.value.reduce((sumTrx, t) => sumTrx + t.item.reduce((sumItem, item) => sumItem + ((item.hargaModal || 0) * item.qty), 0), 0));
+                const hitungTotalPengeluaran = computed(() => daftarPengeluaran.value.reduce((sum, p) => sum + p.nominal, 0));
+                const hitungLabaKotor = computed(() => hitungTotalPemasukan.value - hitungModalTerjual.value);
+                const hitungLabaBersih = computed(() => hitungLabaKotor.value - hitungTotalPengeluaran.value);
 
                 const formatTanggal = (isoString) => {
                     const d = new Date(isoString);
@@ -720,24 +735,16 @@
                     const scannedCode = search.value.trim();
                     if (!scannedCode) return;
                     const matchedProduct = products.value.find(p => p.barcode && p.barcode.toLowerCase() === scannedCode.toLowerCase());
-                    if (matchedProduct) {
-                        addToCart(matchedProduct);
-                        search.value = ''; 
-                    }
+                    if (matchedProduct) { addToCart(matchedProduct); search.value = ''; }
                 };
 
                 const bukaFormDaftar = () => {
                     if (isLoginMode.value) {
                         const pin = prompt("Otorisasi: Masukkan PIN Rahasia Pemilik");
-                        if (pin === "123456") { 
-                            isLoginMode.value = false;
-                            username.value = ''; password.value = '';
-                        } else if (pin !== null) {
-                            alert("PIN Salah! Akses ditolak.");
-                        }
-                    } else {
-                        isLoginMode.value = true;
-                    }
+                        if (pin === "AdityaGantengPol") { 
+                            isLoginMode.value = false; username.value = ''; password.value = '';
+                        } else if (pin !== null) { alert("PIN Salah! Akses ditolak."); }
+                    } else { isLoginMode.value = true; }
                 };
 
                 const prosesAuth = async () => {
@@ -747,104 +754,60 @@
                             const userCred = await signInWithEmailAndPassword(auth, fakeEmail, password.value);
                             const docSnap = await getDoc(doc(db, "users", userCred.user.uid));
                             if (docSnap.exists()) {
-                                role.value = docSnap.data().role;
-                                currentUser.value = docSnap.data().username;
-                                page.value = 'pos';
-                            } else {
-                                alert("Data akun tidak ditemukan!"); signOut(auth);
-                            }
+                                role.value = docSnap.data().role; currentUser.value = docSnap.data().username; page.value = 'pos';
+                            } else { alert("Data akun tidak ditemukan!"); signOut(auth); }
                         } else {
                             const userCred = await createUserWithEmailAndPassword(auth, fakeEmail, password.value);
-                            await setDoc(doc(db, "users", userCred.user.uid), {
-                                username: username.value.toLowerCase(), role: registerRole.value
-                            });
-                            alert("Akun berhasil dibuat! Silakan masuk dengan akun tersebut.");
-                            isLoginMode.value = true; username.value = ''; password.value = '';
+                            await setDoc(doc(db, "users", userCred.user.uid), { username: username.value.toLowerCase(), role: registerRole.value });
+                            alert("Akun berhasil dibuat!"); isLoginMode.value = true; username.value = ''; password.value = '';
                         }
                     } catch (error) {
-                        let pesan = "Terjadi kesalahan.";
-                        if(error.code === 'auth/email-already-in-use') pesan = "Nama pengguna sudah terpakai.";
-                        if(error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') pesan = "Nama pengguna atau sandi salah.";
-                        if(error.code === 'auth/weak-password') pesan = "Kata sandi minimal 6 karakter.";
-                        alert(pesan);
+                        alert("Nama pengguna atau sandi salah.");
                     }
                 };
 
-                const logout = () => {
-                    signOut(auth).then(() => { role.value = null; currentUser.value = ''; cart.value = []; page.value='pos'; });
-                };
+                const logout = () => { signOut(auth).then(() => { role.value = null; currentUser.value = ''; cart.value = []; page.value='pos'; }); };
 
                 const tambahPengeluaran = async () => {
                     if(!formPengeluaran.value.keterangan || formPengeluaran.value.nominal <= 0) return;
                     await addDoc(collection(db, "pengeluaran"), {
-                        keterangan: formPengeluaran.value.keterangan,
-                        nominal: formPengeluaran.value.nominal,
-                        tanggal: new Date().toISOString(),
-                        kasir: currentUser.value
+                        keterangan: formPengeluaran.value.keterangan, nominal: formPengeluaran.value.nominal,
+                        tanggal: new Date().toISOString(), kasir: currentUser.value
                     });
-                    formPengeluaran.value = { keterangan: '', nominal: '' };
-                    alert("Pengeluaran berhasil dicatat!");
+                    formPengeluaran.value = { keterangan: '', nominal: '' }; alert("Pengeluaran berhasil dicatat!");
                 };
                 
-                const hapusPengeluaran = async (id) => {
-                    if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id));
-                };
-
+                const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
                 const tambahProduk = async () => {
                     await addDoc(collection(db, "products"), formProduk.value);
-                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
-                    alert("Produk berhasil ditambahkan!");
+                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' }; alert("Produk berhasil ditambahkan!");
                 };
-                
-                const hapusProduk = async (id) => {
-                    if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id));
-                };
+                const hapusProduk = async (id) => { if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id)); };
 
                 const prosesBarangMasuk = async () => {
-                    const prodId = formBarangMasuk.value.idProduk;
-                    const jumlah = formBarangMasuk.value.jumlah;
-                    
+                    const prodId = formBarangMasuk.value.idProduk; const jumlah = formBarangMasuk.value.jumlah;
                     if (!prodId || jumlah <= 0) return alert("Pilih produk dan masukkan jumlah yang valid!");
-                    
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
                         try {
                             const batch = writeBatch(db);
-                            
-                            const prodRef = doc(db, "products", prodId);
-                            batch.update(prodRef, { stok: prodAsli.stok + jumlah });
-                            
+                            batch.update(doc(db, "products", prodId), { stok: prodAsli.stok + jumlah });
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
-                                const pengeluaranRef = doc(collection(db, "pengeluaran"));
-                                batch.set(pengeluaranRef, {
-                                    keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`,
-                                    nominal: totalBiayaKulakan,
-                                    tanggal: new Date().toISOString(),
-                                    kasir: currentUser.value
-                                });
+                                const pRef = doc(collection(db, "pengeluaran"));
+                                batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
                             }
-
                             await batch.commit();
-
-                            alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.\nPengeluaran kulakan (Rp ${totalBiayaKulakan.toLocaleString('id-ID')}) telah otomatis dicatat di Laporan Keuangan.`);
-                            formBarangMasuk.value = { idProduk: '', jumlah: '' };
-                            page.value = 'produk';
-                        } catch (error) {
-                            alert("Terjadi kesalahan: " + error.message);
-                        }
+                            alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
+                            formBarangMasuk.value = { idProduk: '', jumlah: '' }; page.value = 'produk';
+                        } catch (error) { alert("Terjadi kesalahan: " + error.message); }
                     }
                 };
 
                 const addToCart = (p) => {
                     if (p.stok <= 0) return alert("Stok habis!");
                     let item = cart.value.find(i => i.id === p.id);
-                    if (item) {
-                        if(item.qty < p.stok) item.qty++;
-                        else alert("Stok tidak mencukupi!");
-                    } else {
-                        cart.value.push({ ...p, qty: 1 });
-                    }
+                    if (item) { if(item.qty < p.stok) item.qty++; else alert("Stok tidak mencukupi!"); } else { cart.value.push({ ...p, qty: 1 }); }
                 };
                 
                 const addQty = (index) => {
@@ -852,23 +815,20 @@
                     let prodAsli = products.value.find(p => p.id === item.id);
                     if (item.qty < prodAsli.stok) item.qty++;
                 };
-                
                 const minQty = (index) => {
                     if (cart.value[index].qty > 1) cart.value[index].qty--;
                     else cart.value.splice(index, 1);
                 };
 
-                // FUNGSI MENCETAK DENGAN QZ TRAY ESC/POS RAW
+                // MENCETAK VIA QZ TRAY TANPA LOGO (MURNI TEKS AGAR LANCAR & POTONG KERTAS OTOMATIS)
                 const cetakStrukQZ = (struk) => {
                     if (!qzConnected.value || !selectedPrinter.value) {
-                        console.warn("Printer tidak tersedia. Fallback ke window.print()");
-                        window.print();
+                        window.print(); 
                         return;
                     }
 
-                    // Helper pembatas spasi (Maksimal 32 karakter untuk 58mm Thermal)
                     const formatLine = (left, right) => {
-                        let leftStr = String(left).substring(0, 20); // Batasi nama panjang
+                        let leftStr = String(left).substring(0, 20); 
                         let rightStr = String(right);
                         let spaceLen = 32 - leftStr.length - rightStr.length;
                         if (spaceLen < 1) spaceLen = 1;
@@ -877,8 +837,8 @@
 
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
-                        '\x1B' + '\x40',          // Init (ESC @)
-                        '\x1B' + '\x61' + '\x01', // Center align
+                        '\x1B' + '\x40',          // Init printer (ESC @)
+                        '\x1B' + '\x61' + '\x01', // Rata Tengah (Center align)
                         '\x1B' + '\x45' + '\x01', // Bold on
                         'KOPMA UM\n',
                         '\x1B' + '\x45' + '\x00', // Bold off
@@ -886,10 +846,9 @@
                         'Kasir: ' + struk.kasir + '\n',
                         formatTanggal(struk.tanggal) + '\n',
                         '--------------------------------\n',
-                        '\x1B' + '\x61' + '\x00', // Left align
+                        '\x1B' + '\x61' + '\x00', // Rata Kiri
                     ];
 
-                    // Item list
                     struk.cart.forEach(item => {
                         data.push(item.nama + '\n');
                         let qtyPrice = `${item.qty} x ${item.hargaJual.toLocaleString('id-ID')}`;
@@ -899,12 +858,12 @@
 
                     data.push('--------------------------------\n');
                     data.push(formatLine('Subtotal:', struk.subtotal.toLocaleString('id-ID')));
-                    if (struk.diskon > 0) {
-                        data.push(formatLine('Diskon:', '-' + struk.diskon.toLocaleString('id-ID')));
-                    }
+                    if (struk.diskon > 0) data.push(formatLine('Diskon:', '-' + struk.diskon.toLocaleString('id-ID')));
+                    
                     data.push('\x1B' + '\x45' + '\x01'); // Bold on
                     data.push(formatLine('TOTAL:', struk.total.toLocaleString('id-ID')));
                     data.push('\x1B' + '\x45' + '\x00'); // Bold off
+                    
                     data.push('--------------------------------\n');
                     data.push(formatLine('Metode:', struk.metodeBayar));
                     if (struk.metodeBayar === 'Tunai') {
@@ -914,12 +873,12 @@
                     
                     data.push('\x1B' + '\x61' + '\x01'); // Center align
                     data.push('\nTerima Kasih Atas Kunjungan Anda\n');
-                    data.push('\x0A\x0A\x0A\x0A'); // Feed kertas
+                    data.push('\x0A\x0A\x0A\x0A\x0A'); // Feed kertas
                     data.push('\x1D' + '\x56' + '\x41' + '\x00'); // Full Cut Paper command
 
                     qz.print(config, data).catch(err => {
-                        alert("Gagal print via QZ: " + err);
-                        window.print(); // Fallback
+                        alert("Gagal mencetak via QZ Tray: " + err);
+                        window.print(); 
                     });
                 };
 
@@ -935,27 +894,23 @@
 
                     const tgl = new Date().toISOString();
                     const transaksiRef = doc(collection(db, "transactions"));
+                    const namaKasirRealTime = currentUser.value; 
+
                     batch.set(transaksiRef, {
-                        tanggal: tgl,
-                        kasir: currentUser.value,
-                        item: cart.value,
+                        tanggal: tgl, kasir: namaKasirRealTime, item: cart.value,
                         subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value,
-                        uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value
+                        metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value
                     });
 
                     await batch.commit();
 
                     strukAktif.value = {
                         tanggal: tgl, cart: [...cart.value], subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value
+                        metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime
                     };
 
                     setTimeout(() => {
-                        // REVISI QZ TRAY: Cetak lewat ESC/POS atau Fallback ke Window
                         cetakStrukQZ(strukAktif.value);
-                        
-                        // Bersihkan keranjang
                         cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
                     }, 500);
                 };
@@ -966,18 +921,12 @@
                             const batch = writeBatch(db);
                             transaksi.item.forEach(item => {
                                 const prodAsli = products.value.find(p => p.id === item.id);
-                                if(prodAsli) {
-                                    const prodRef = doc(db, "products", item.id);
-                                    batch.update(prodRef, { stok: prodAsli.stok + item.qty });
-                                }
+                                if(prodAsli) { batch.update(doc(db, "products", item.id), { stok: prodAsli.stok + item.qty }); }
                             });
-                            const trxRef = doc(db, "transactions", transaksi.id);
-                            batch.delete(trxRef);
+                            batch.delete(doc(db, "transactions", transaksi.id));
                             await batch.commit();
                             alert("Berhasil! Transaksi dihapus dan stok barang telah dikembalikan.");
-                        } catch (error) {
-                            alert("Terjadi kesalahan saat menghapus: " + error.message);
-                        }
+                        } catch (error) { alert("Terjadi kesalahan saat menghapus: " + error.message); }
                     }
                 };
 
@@ -988,7 +937,8 @@
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
                     setUang, bukaFormDaftar, prosesAuth, logout, tambahProduk, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
-                    qzConnected, daftarPrinter, selectedPrinter // State QZ Tray
+                    qzConnected, daftarPrinter, selectedPrinter,
+                    getBarcodeBase64, downloadBarcode, downloadSemuaBarcodePDF
                 };
             }
         }).mount('#app');
