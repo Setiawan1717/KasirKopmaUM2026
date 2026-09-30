@@ -40,7 +40,7 @@
         <!-- ========================================== -->
         <aside class="w-64 bg-[#1e293b] text-white flex flex-col no-print shadow-xl z-20 flex-shrink-0 sticky top-0 h-screen">
             <div class="p-5 flex items-center space-x-3 border-b border-slate-700">
-                <img src="LogoKopma.jpg" alt="Logo Kopma UM" class="h-8 w-8 object-contain">
+                <img src="LogoKopmaHitamPutih.jpg" alt="Logo Kopma" class="h-8 w-8 object-contain">
                 <h1 class="text-xl font-bold tracking-wider">POS Web</h1>
             </div>
 
@@ -494,7 +494,7 @@
         <!-- ========================================== -->
         <div v-if="!role" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 no-print transition-all">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md relative transform transition-all p-10 mt-12 border border-slate-100">
-                <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white rounded-full w-24 h-24 flex items-center justify-center shadow-xl border-4 border-white overflow-hidden"><img src="LogoKopma.jpg" alt="Logo Kopma UM" class="h-full w-full object-cover"></div>
+                <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white rounded-full w-24 h-24 flex items-center justify-center shadow-xl border-4 border-white overflow-hidden"><img src="LogoKopmaHitamPutih.jpg" alt="Logo Kopma" class="h-full w-full object-cover"></div>
                 <div class="text-center mt-10 mb-8">
                     <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">POS Kopma UM</h1>
                     <p class="text-sm text-slate-500 mt-2 font-medium">{{ isLoginMode ? 'Silakan login untuk mengakses sistem kasir' : 'Pendaftaran Akun Pegawai Baru' }}</p>
@@ -537,7 +537,7 @@
         <!-- ========================================== -->
         <div id="print-area" v-if="strukAktif">
             <div style="text-align: center; border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
-                <img src="LogoKopma.jpg" style="width: 45px; margin: 0 auto 5px auto; display: block;" alt="Logo">
+                <img src="LogoKopmaHitamPutih.jpg" style="width: 45px; margin: 0 auto 5px auto; display: block;" alt="Logo">
                 <h3 style="margin:0; font-size: 16px; font-weight: bold;">KOPMA UM</h3>
                 <p style="margin:0; font-size: 10px;">Universitas Negeri Malang</p>
                 <p style="margin:0; font-size: 10px;">Kasir: <span class="capitalize">{{ strukAktif.kasir }}</span></p>
@@ -559,7 +559,7 @@
                 <div style="display: flex; justify-content: space-between;" v-if="strukAktif.metodeBayar === 'Tunai'"><span>Bayar:</span><span>{{ strukAktif.uangDiterima }}</span></div>
                 <div style="display: flex; justify-content: space-between;" v-if="strukAktif.metodeBayar === 'Tunai'"><span>Kembali:</span><span>{{ strukAktif.kembalian }}</span></div>
             </div>
-            <p style="text-align: center; font-size: 10px; margin-top: 10px;">Terima Kasih Atas Kunjungan Anda</p>
+            <p style="text-align: center; font-size: 10px; margin-top: 10px;">Terima Kasih Atas Kunjungan Nice</p>
         </div>
     </div>
 
@@ -820,8 +820,8 @@
                     else cart.value.splice(index, 1);
                 };
 
-                // MENCETAK VIA QZ TRAY TANPA LOGO (MURNI TEKS AGAR LANCAR & POTONG KERTAS OTOMATIS)
-                const cetakStrukQZ = (struk) => {
+                // MENCETAK VIA QZ TRAY DENGAN LOGO HITAM PUTIH (MONOKROM)
+                const cetakStrukQZ = async (struk) => {
                     if (!qzConnected.value || !selectedPrinter.value) {
                         window.print(); 
                         return;
@@ -835,10 +835,45 @@
                         return leftStr + " ".repeat(spaceLen) + rightStr + '\n';
                     };
 
+                    // Ambil file logo hitam putih dari GitHub
+                    let logoBase64 = null;
+                    try {
+                        let url = window.location.href.split('?')[0];
+                        if (url.endsWith('.html')) url = url.substring(0, url.lastIndexOf('/') + 1);
+                        if (!url.endsWith('/')) url += '/';
+                        
+                        let response = await fetch(url + 'LogoKopmaHitamPutih.png');
+                        if (response.ok) {
+                            let blob = await response.blob();
+                            logoBase64 = await new Promise((resolve) => {
+                                let reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(blob);
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("Logo gagal dimuat, melanjutkan cetak tanpa logo:", e);
+                    }
+
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
                         '\x1B' + '\x40',          // Init printer (ESC @)
-                        '\x1B' + '\x61' + '\x01', // Rata Tengah (Center align)
+                        '\x1B' + '\x61' + '\x01', // Rata Tengah
+                    ];
+
+                    // Jika logo hitam putih berhasil diambil, selipkan perintah cetak gambar
+                    if (logoBase64) {
+                        data.push({
+                            type: 'raw',
+                            format: 'image',
+                            flavor: 'base64',
+                            data: logoBase64.split(',')[1],
+                            options: { language: 'ESCPOS', dotDensity: 'single', width: '38mm' }
+                        });
+                        data.push('\x0A'); // Spasi enter
+                    }
+
+                    data.push(
                         '\x1B' + '\x45' + '\x01', // Bold on
                         'KOPMA UM\n',
                         '\x1B' + '\x45' + '\x00', // Bold off
@@ -847,7 +882,7 @@
                         formatTanggal(struk.tanggal) + '\n',
                         '--------------------------------\n',
                         '\x1B' + '\x61' + '\x00', // Rata Kiri
-                    ];
+                    );
 
                     struk.cart.forEach(item => {
                         data.push(item.nama + '\n');
