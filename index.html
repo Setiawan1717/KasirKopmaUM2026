@@ -542,6 +542,7 @@
                 <p style="margin:0; font-size: 10px;">Universitas Negeri Malang</p>
                 <p style="margin:0; font-size: 10px;">Kasir: <span class="capitalize">{{ strukAktif.kasir }}</span></p>
                 <p style="margin:0; font-size: 10px;">{{ formatTanggal(strukAktif.tanggal) }}</p>
+                <p style="margin:0; font-size: 11px; font-weight: bold; margin-top: 3px;">No. Pesanan: {{ strukAktif.nomorAntrian }}</p>
             </div>
             <div style="border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
                 <div v-for="item in strukAktif.cart" :key="item.id" style="margin-bottom: 3px;">
@@ -894,6 +895,9 @@
                         'Universitas Negeri Malang\n',
                         'Kasir: ' + struk.kasir + '\n',
                         formatTanggal(struk.tanggal) + '\n',
+                        '\x1B' + '\x45' + '\x01', // Bold on
+                        'No. Pesanan: ' + (struk.nomorAntrian || '-') + '\n',
+                        '\x1B' + '\x45' + '\x00', // Bold off
                         '--------------------------------\n',
                         '\x1B' + '\x61' + '\x00', // Rata Kiri
                     );
@@ -934,6 +938,17 @@
                 const simpanTransaksi = async () => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
 
+                    // Hitung nomor urut (antrian) hari ini
+                    const tglSekarang = new Date();
+                    const stringHariIni = `${tglSekarang.getFullYear()}-${String(tglSekarang.getMonth() + 1).padStart(2, '0')}-${String(tglSekarang.getDate()).padStart(2, '0')}`;
+                    
+                    const hitungTrxHariIni = daftarTransaksi.value.filter(t => {
+                        const dateObj = new Date(t.tanggal);
+                        return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
+                    }).length;
+                    
+                    const nomorAntrian = hitungTrxHariIni + 1; // Ditambah 1 untuk transaksi yang sedang dibuat
+
                     const batch = writeBatch(db);
                     cart.value.forEach(item => {
                         const prodRef = doc(db, "products", item.id);
@@ -941,21 +956,23 @@
                         batch.update(prodRef, { stok: prodAsli.stok - item.qty });
                     });
 
-                    const tgl = new Date().toISOString();
+                    const tgl = tglSekarang.toISOString();
                     const transaksiRef = doc(collection(db, "transactions"));
                     const namaKasirRealTime = currentUser.value; 
 
                     batch.set(transaksiRef, {
                         tanggal: tgl, kasir: namaKasirRealTime, item: cart.value,
                         subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value
+                        metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value,
+                        nomorAntrian: nomorAntrian // Simpan nomor urut ke database
                     });
 
                     await batch.commit();
 
                     strukAktif.value = {
                         tanggal: tgl, cart: [...cart.value], subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime
+                        metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime,
+                        nomorAntrian: nomorAntrian // Masukkan ke data cetak
                     };
 
                     setTimeout(() => {
@@ -963,7 +980,7 @@
                         cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
                     }, 500);
                 };
-
+                
                 const hapusTransaksi = async (transaksi) => {
                     if(confirm("Yakin ingin MENGHAPUS transaksi ini?\n\nCATATAN: Stok barang dari transaksi ini akan otomatis dikembalikan ke Master Produk.")) {
                         try {
