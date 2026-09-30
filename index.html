@@ -239,16 +239,19 @@
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-boxes text-blue-500 mr-2"></i> Manajemen Data Produk</h2>
                     </div>
                     <div class="p-6">
-                        <form @submit.prevent="tambahProduk" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8 bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-inner">
-                            <div class="md:col-span-6"><p class="text-sm font-bold text-blue-800 mb-2 border-b border-blue-200 pb-2">Tambah Produk Baru</p></div>
+                        <form @submit.prevent="simpanProduk" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8 bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-inner">
+                            <div class="md:col-span-6 flex justify-between items-center border-b border-blue-200 pb-2 mb-2">
+                                <p class="text-sm font-bold text-blue-800"><i :class="editMode ? 'fas fa-edit' : 'fas fa-plus-circle'" class="mr-1"></i> {{ editMode ? 'Edit Data Produk' : 'Tambah Produk Baru' }}</p>
+                                <button v-if="editMode" @click="batalEdit" type="button" class="text-xs text-rose-500 hover:text-rose-700 font-bold transition flex items-center"><i class="fas fa-times-circle mr-1"></i> Batal Edit</button>
+                            </div>
                             <input v-model="formProduk.barcode" placeholder="Kode Barcode (Opsional)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model="formProduk.nama" required placeholder="Nama Produk" class="p-3 bg-white border border-slate-200 rounded-lg md:col-span-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model="formProduk.kategori" required placeholder="Kategori" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.hargaModal" required type="number" placeholder="Harga Modal (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.hargaJual" required type="number" placeholder="Harga Jual (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.stok" required type="number" placeholder="Stok Awal" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none md:col-span-2 lg:col-span-1">
-                            <button type="submit" class="bg-blue-600 text-white rounded-lg p-3 md:col-span-6 font-bold hover:bg-blue-700 transition shadow-md flex justify-center items-center space-x-2">
-                                <i class="fas fa-save"></i> <span>Simpan Produk</span>
+                            <button type="submit" class="text-white rounded-lg p-3 md:col-span-6 font-bold transition shadow-md flex justify-center items-center space-x-2" :class="editMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'">
+                                <i :class="editMode ? 'fas fa-save' : 'fas fa-plus'"></i> <span>{{ editMode ? 'Update Data Produk' : 'Simpan Produk' }}</span>
                             </button>
                         </form>
 
@@ -267,8 +270,9 @@
                                         <td class="p-4">Rp {{ p.hargaModal.toLocaleString('id-ID') }}</td>
                                         <td class="p-4 font-bold text-blue-600 text-base">Rp {{ p.hargaJual.toLocaleString('id-ID') }}</td>
                                         <td class="p-4 text-center font-bold text-lg" :class="p.stok < 5 ? 'text-rose-500': 'text-slate-700'">{{ p.stok }}</td>
-                                        <td class="p-4 flex justify-center">
-                                            <button @click="hapusProduk(p.id)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-sm"><i class="fas fa-trash-alt"></i> <span>Hapus</span></button>
+                                        <td class="p-4 flex justify-center space-x-2">
+                                            <button @click="siapkanEdit(p)" class="bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm" title="Edit Produk"><i class="fas fa-edit"></i></button>
+                                            <button @click="hapusProduk(p.id)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm" title="Hapus Produk"><i class="fas fa-trash-alt"></i></button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -603,7 +607,9 @@
                 
                 const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' });
                 const formBarangMasuk = ref({ idProduk: '', jumlah: '' });
-
+                const editMode = ref(false);
+                const editId = ref(null);
+                
                 const daftarTransaksi = ref([]);
                 const filterTransaksi = ref('Semua'); 
                 const filterTanggal = ref('');
@@ -841,10 +847,36 @@
                 };
                 
                 const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
-                const tambahProduk = async () => {
-                    await addDoc(collection(db, "products"), formProduk.value);
-                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' }; alert("Produk berhasil ditambahkan!");
+
+                const siapkanEdit = (p) => {
+                    editMode.value = true;
+                    editId.value = p.id;
+                    // Mengisi form dengan data produk yang diklik
+                    formProduk.value = { barcode: p.barcode || '', nama: p.nama, kategori: p.kategori, hargaModal: p.hargaModal, hargaJual: p.hargaJual, stok: p.stok };
+                    window.scrollTo({ top: 0, behavior: 'smooth' }); // Otomatis scroll ke atas
                 };
+
+                const batalEdit = () => {
+                    editMode.value = false;
+                    editId.value = null;
+                    // Mengosongkan form kembali
+                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
+                };
+
+                const simpanProduk = async () => {
+                    if (editMode.value) {
+                    // Jika sedang mode edit, update data di Firebase
+                    await updateDoc(doc(db, "products", editId.value), formProduk.value);
+                    alert("Data produk berhasil diperbarui!");
+                    batalEdit(); // Kembalikan ke form tambah biasa
+                } else {
+                    // Jika tidak, tambahkan produk baru seperti biasa
+                    await addDoc(collection(db, "products"), formProduk.value);
+                    alert("Produk berhasil ditambahkan!");
+                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
+                }
+            };
+                
                 const hapusProduk = async (id) => { if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id)); };
 
                 const prosesBarangMasuk = async () => {
