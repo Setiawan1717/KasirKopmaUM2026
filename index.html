@@ -87,8 +87,11 @@
         <main class="flex-1 flex flex-col h-screen no-print bg-slate-50 relative overflow-hidden">
             <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 shrink-0 h-[72px]">
                 <div class="relative w-full max-w-lg">
-                    <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
-                    <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+                    <!-- Kolom Search HANYA muncul di menu Transaksi Kasir -->
+                    <template v-if="page === 'pos'">
+                        <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
+                        <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+                    </template>
                 </div>
                 <div class="text-sm font-semibold text-slate-500 flex items-center space-x-2">
                     <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{{ role }}</span>
@@ -257,20 +260,31 @@
                                 <input v-model.number="formProduk.hargaJual" required type="number" placeholder="Harga Jual (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                                 <input v-model.number="formProduk.stok" required type="number" placeholder="Stok Awal" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none md:col-span-2 lg:col-span-1">
                                 <button type="submit" class="text-white rounded-lg p-3 md:col-span-6 font-bold transition shadow-md flex justify-center items-center space-x-2" :class="editMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'">
-                                    <i :class="editMode ? 'fas fa-save' : 'fas fa-plus'"></i> <span>{{ editMode ? 'Update Data Produk' : 'Simpan Produk' }}</span>
-                                </button>
-                            </form>
-        
-                            <div class="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
-                                <table class="w-full text-left border-collapse min-w-[900px]">
-                                    <thead>
-                                        <tr class="bg-slate-100 text-slate-600 text-sm uppercase tracking-wider">
-                                            <th class="p-4 font-semibold border-b">Barcode</th><th class="p-4 font-semibold border-b">Nama Produk</th><th class="p-4 font-semibold border-b">Kategori</th><th class="p-4 font-semibold border-b">Modal</th><th class="p-4 font-semibold border-b">Jual</th><th class="p-4 font-semibold border-b text-center">Stok</th><th class="p-4 font-semibold border-b text-center">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
-                                            <td class="p-4 font-mono text-xs text-slate-500">{{ p.barcode || '-' }}</td>
+                            <i :class="editMode ? 'fas fa-save' : 'fas fa-plus'"></i> <span>{{ editMode ? 'Update Data Produk' : 'Simpan Produk' }}</span>
+                        </button>
+                    </form>
+
+                    <!-- Tambahan Fitur Pencarian Master Produk -->
+                    <div class="mb-4 flex flex-col md:flex-row items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm gap-4">
+                        <div class="relative w-full md:w-1/2 lg:w-1/3">
+                            <i class="fas fa-search absolute left-4 top-3.5 text-slate-400"></i>
+                            <input v-model="searchProduk" type="text" placeholder="Cari nama atau scan barcode..." class="w-full bg-slate-50 pl-11 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium text-sm text-slate-700 transition-colors">
+                        </div>
+                        <div class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+                            Total: {{ filteredMasterProducts.length }} Produk
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+                        <table class="w-full text-left border-collapse min-w-[900px]">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b">Barcode</th><th class="p-4 font-semibold border-b">Nama Produk</th><th class="p-4 font-semibold border-b">Kategori</th><th class="p-4 font-semibold border-b">Modal</th><th class="p-4 font-semibold border-b">Jual</th><th class="p-4 font-semibold border-b text-center">Stok</th><th class="p-4 font-semibold border-b text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="p in filteredMasterProducts" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
+                                    <td class="p-4 font-mono text-xs text-slate-500">{{ p.barcode || '-' }}</td>
                                             <td class="p-4 font-bold text-slate-800">{{ p.nama }}</td>
                                             <td class="p-4"><span class="bg-slate-200 text-slate-600 px-3 py-1 rounded-md text-xs font-medium">{{ p.kategori }}</span></td>
                                             <td class="p-4">Rp {{ p.hargaModal.toLocaleString('id-ID') }}</td>
@@ -283,35 +297,57 @@
                                         </tr>
                                     </tbody>
                                 </table>
-                                <div v-if="products.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
-                                    <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Belum ada data produk tersimpan.</p>
-                                </div>
-                            </div>
+                        <div v-if="filteredMasterProducts.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
+                            <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Data produk tidak ditemukan.</p>
                         </div>
                     </div>
-        
-                    <!-- 3. HALAMAN BARANG MASUK -->
-                    <div v-if="page === 'barang_masuk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                            <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-truck-loading text-emerald-500 mr-2"></i> Form Barang Masuk</h2>
-                        </div>
-                        <div class="p-8">
-                            <div class="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-lg">
-                                <form @submit.prevent="prosesBarangMasuk" class="space-y-6">
-                                    <div>
-                                        <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Pilih Produk</label>
-                                        <div class="relative">
-                                            <select v-model="formBarangMasuk.idProduk" required class="w-full p-4 pl-4 pr-10 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 appearance-none font-medium text-slate-700">
-                                                <option value="" disabled>-- Pilih Produk dari Daftar --</option>
-                                                <option v-for="p in products" :key="p.id" :value="p.id">
-                                                    {{ p.barcode ? '['+p.barcode+'] ' : '' }}{{ p.nama }} (Sisa Stok: {{ p.stok }})
-                                                </option>
-                                            </select>
-                                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"><i class="fas fa-chevron-down"></i></div>
+                </div>
+            </div>
+
+            <!-- 3. HALAMAN BARANG MASUK -->
+            <div v-if="page === 'barang_masuk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                    <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-truck-loading text-emerald-500 mr-2"></i> Form Barang Masuk</h2>
+                </div>
+                <div class="p-8">
+                    <div class="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-lg">
+                        <form @submit.prevent="prosesBarangMasuk" class="space-y-6">
+                            <div class="relative">
+                                <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Cari / Scan Produk</label>
+                                <div class="relative">
+                                    <i class="fas fa-search absolute left-4 top-4 text-slate-400"></i>
+                                    <input v-model="searchBarangMasuk" @keyup.enter="handleScanBarangMasuk" @input="selectedProdukBarangMasuk = null; formBarangMasuk.idProduk = ''" type="text" placeholder="Scan barcode atau ketik nama produk..." required class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700">
+                                </div>
+                                
+                                <!-- Autocomplete List Barang Masuk -->
+                                <ul v-if="searchBarangMasuk && !selectedProdukBarangMasuk && filteredPilihanBarangMasuk.length > 0" class="absolute z-20 w-full bg-white border border-slate-200 shadow-xl max-h-60 overflow-y-auto rounded-xl mt-1">
+                                    <li v-for="p in filteredPilihanBarangMasuk" :key="p.id" @click="pilihProdukBarangMasuk(p)" class="p-3 hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 flex justify-between items-center transition-colors">
+                                        <div>
+                                            <p class="font-bold text-sm text-slate-800">{{ p.nama }}</p>
+                                            <p class="text-xs text-slate-500 font-mono"><i class="fas fa-barcode mr-1"></i> {{ p.barcode || 'Tanpa Barcode' }}</p>
                                         </div>
-                                    </div>
+                                        <span class="text-xs bg-slate-100 px-2 py-1 rounded-md text-slate-600 font-bold border border-slate-200">Stok: {{ p.stok }}</span>
+                                    </li>
+                                </ul>
+                                <div v-if="searchBarangMasuk && !selectedProdukBarangMasuk && filteredPilihanBarangMasuk.length === 0" class="absolute z-20 w-full bg-white border border-slate-200 shadow-xl rounded-xl mt-1 p-4 text-center text-sm text-slate-500">
+                                    Produk tidak ditemukan.
+                                </div>
+
+                                <!-- Terpilih Indicator -->
+                                <div v-if="selectedProdukBarangMasuk" class="mt-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between shadow-inner">
                                     <div>
-                                        <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Jumlah Tambahan Stok</label>
+                                        <p class="text-[10px] text-emerald-600 font-bold uppercase mb-1 tracking-wider"><i class="fas fa-check-circle mr-1"></i> Produk Terpilih</p>
+                                        <p class="font-bold text-slate-800">{{ selectedProdukBarangMasuk.nama }}</p>
+                                        <p class="text-xs text-slate-500 font-mono mt-0.5">{{ selectedProdukBarangMasuk.barcode || '-' }}</p>
+                                    </div>
+                                    <div class="text-right bg-white px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
+                                        <p class="text-[10px] text-slate-400 font-bold uppercase">Stok Saat Ini</p>
+                                        <p class="font-black text-emerald-700 text-lg leading-none">{{ selectedProdukBarangMasuk.stok }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Jumlah Tambahan Stok</label>
                                         <div class="relative">
                                             <i class="fas fa-boxes absolute left-4 top-4 text-slate-400"></i>
                                             <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-xl text-slate-800">
@@ -595,12 +631,16 @@
                 const registerRole = ref('kasir');
                 
                 const role = ref(null);
-                const currentUser = ref('');
-                const page = ref('pos');
-                const products = ref([]);
-                const search = ref('');
-                
-                const cart = ref([]);
+            const currentUser = ref('');
+            const page = ref('pos');
+            const products = ref([]);
+            const search = ref('');
+            
+            const searchProduk = ref('');
+            const searchBarangMasuk = ref('');
+            const selectedProdukBarangMasuk = ref(null);
+
+            const cart = ref([]);
                 const diskon = ref(0);
                 const metodeBayar = ref('Tunai'); 
                 const uangDiterima = ref(0);
@@ -745,12 +785,37 @@
                 };
 
                 const filteredProducts = computed(() => {
-                    const keyword = search.value.toLowerCase().trim();
-                    if (!keyword) return products.value;
-                    return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
-                });
+                const keyword = search.value.toLowerCase().trim();
+                if (!keyword) return products.value;
+                return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
+            });
 
-                const subtotal = computed(() => cart.value.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0));
+            const filteredMasterProducts = computed(() => {
+                const keyword = searchProduk.value.toLowerCase().trim();
+                if (!keyword) return products.value;
+                return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
+            });
+
+            const filteredPilihanBarangMasuk = computed(() => {
+                const keyword = searchBarangMasuk.value.toLowerCase().trim();
+                if (!keyword) return []; // Hanya munculkan list ketika mengetik sesuatu
+                return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword))).slice(0, 10);
+            });
+
+            const pilihProdukBarangMasuk = (p) => {
+                selectedProdukBarangMasuk.value = p;
+                formBarangMasuk.value.idProduk = p.id;
+                searchBarangMasuk.value = p.nama; // Isikan nama ke input setelah dipilih
+            };
+
+            const handleScanBarangMasuk = () => {
+                const keyword = searchBarangMasuk.value.trim().toLowerCase();
+                if(!keyword) return;
+                const matched = products.value.find(p => p.barcode && p.barcode.toLowerCase() === keyword);
+                if (matched) { pilihProdukBarangMasuk(matched); }
+            };
+
+            const subtotal = computed(() => cart.value.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0));
                 const total = computed(() => subtotal.value - diskon.value);
                 const kembalian = computed(() => uangDiterima.value - total.value);
                 
@@ -860,13 +925,16 @@
                             batch.update(doc(db, "products", prodId), { stok: prodAsli.stok + jumlah });
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
-                                const pRef = doc(collection(db, "pengeluaran"));
-                                batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
-                            }
-                            await batch.commit();
-                            alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
-                            formBarangMasuk.value = { idProduk: '', jumlah: '' }; page.value = 'produk';
-                        } catch (error) { alert("Terjadi kesalahan: " + error.message); }
+                            const pRef = doc(collection(db, "pengeluaran"));
+                            batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
+                        }
+                        await batch.commit();
+                        alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
+                        formBarangMasuk.value = { idProduk: '', jumlah: '' };
+                        searchBarangMasuk.value = ''; 
+                        selectedProdukBarangMasuk.value = null;
+                        page.value = 'produk';
+                    } catch (error) { alert("Terjadi kesalahan: " + error.message); }
                     }
                 };
 
@@ -999,8 +1067,9 @@
                 };
 
                 return {
-                    isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts, 
-                    formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
+                isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts, 
+                searchProduk, filteredMasterProducts, searchBarangMasuk, selectedProdukBarangMasuk, filteredPilihanBarangMasuk, pilihProdukBarangMasuk, handleScanBarangMasuk,
+                formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
