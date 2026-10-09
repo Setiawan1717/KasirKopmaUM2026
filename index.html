@@ -4,23 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS Web - Kopma UM</title>
-    
+
     <!-- Library CSS & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Library Eksternal Canggih -->
     <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script> <!-- QZ Tray Printer -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script> <!-- Barcode Generator -->
+    <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script> <!-- Kamera barcode lintas browser -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- Ekspor PDF -->
-    
+
     <style>
         [v-cloak] { display: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
+
         /* Fallback Print Browser (Jika QZ Tray mati) */
         @media print {
             @page { margin: 0; }
@@ -32,13 +33,13 @@
         }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex">
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex overflow-x-hidden">
     <div id="app" v-cloak class="flex w-full min-h-screen">
 
         <!-- ========================================== -->
         <!-- SIDEBAR (MENU KIRI) -->
         <!-- ========================================== -->
-        <aside class="w-64 bg-[#1e293b] text-white flex flex-col no-print shadow-xl z-20 flex-shrink-0 sticky top-0 h-screen">
+        <aside :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" class="fixed inset-y-0 left-0 w-64 bg-[#1e293b] text-white flex flex-col no-print shadow-xl z-30 flex-shrink-0 transition-transform duration-200 lg:sticky lg:top-0 h-screen">
             <div class="p-5 flex items-center space-x-3 border-b border-slate-700">
                 <img src="LogoKopma.jpg" alt="Logo Kopma" class="h-8 w-8 object-contain">
                 <h1 class="text-xl font-bold tracking-wider">Kasir Kopma</h1>
@@ -48,27 +49,27 @@
                 <p class="text-xs text-slate-400 font-semibold mb-4 tracking-widest">MENU UTAMA</p>
                 <ul class="space-y-2">
                     <li>
-                        <button @click="page = 'pos'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'pos' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                        <button @click="page = 'pos'; mobileMenuOpen = false" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'pos' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-cash-register w-5 text-center"></i><span class="font-medium">Transaksi Kasir</span>
                         </button>
                     </li>
                     <li v-if="role === 'admin'">
-                        <button @click="page = 'produk'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'produk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                        <button @click="page = 'produk'; mobileMenuOpen = false" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'produk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-box w-5 text-center"></i><span class="font-medium">Master Produk</span>
                         </button>
                     </li>
                     <li v-if="role === 'admin'">
-                        <button @click="page = 'barang_masuk'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'barang_masuk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                        <button @click="page = 'barang_masuk'; mobileMenuOpen = false" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'barang_masuk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-truck-loading w-5 text-center"></i><span class="font-medium">Barang Masuk</span>
                         </button>
                     </li>
                     <li v-if="role === 'admin'">
-                        <button @click="page = 'riwayat'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'riwayat' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                        <button @click="page = 'riwayat'; mobileMenuOpen = false" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'riwayat' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-history w-5 text-center"></i><span class="font-medium">Riwayat Transaksi</span>
                         </button>
                     </li>
                     <li v-if="role === 'admin'">
-                        <button @click="page = 'laporan'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
+                        <button @click="page = 'laporan'; mobileMenuOpen = false" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors" :class="page === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-700 hover:text-white'">
                             <i class="fas fa-chart-pie w-5 text-center"></i><span class="font-medium">Laporan Keuangan</span>
                         </button>
                     </li>
@@ -89,37 +90,52 @@
             </div>
         </aside>
 
+        <!-- Overlay menu untuk layar kecil -->
+        <div v-if="mobileMenuOpen" @click="mobileMenuOpen = false" class="fixed inset-0 bg-slate-900/50 z-20 lg:hidden no-print"></div>
+
         <!-- ========================================== -->
         <!-- MAIN CONTENT -->
         <!-- ========================================== -->
-        <main class="flex-1 flex flex-col min-h-screen no-print bg-slate-50 relative">
-            
-            <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 sticky top-0">
-                <div class="relative w-full max-w-lg">
+        <main class="flex-1 flex flex-col min-w-0 h-screen no-print bg-slate-50 relative">
+
+            <header class="bg-white shadow-sm px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 z-10 sticky top-0 shrink-0">
+                <button @click="mobileMenuOpen = !mobileMenuOpen" class="lg:hidden w-10 h-10 shrink-0 rounded-lg bg-slate-100 text-slate-700" aria-label="Buka menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="relative flex-1 w-full max-w-lg" v-if="page === 'pos'">
                     <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
-                    <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+                    <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan barcode / cari produk..." class="w-full bg-slate-100 pl-10 pr-12 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+                    <button @click="startCamera" type="button" class="absolute right-2 top-1.5 w-8 h-8 rounded-md bg-blue-600 text-white hover:bg-blue-700" aria-label="Scan dengan kamera" title="Scan dengan kamera">
+                        <i class="fas fa-camera"></i>
+                    </button>
                 </div>
-                <div class="text-sm font-semibold text-slate-500 flex items-center space-x-2">
-                    <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{{ role }}</span>
-                    <span>KOPMA UM</span>
+                <div v-else class="flex-1 w-full max-w-lg"></div>
+
+                <div class="text-xs sm:text-sm font-semibold text-slate-500 flex items-center space-x-2 shrink-0">
+                    <span class="bg-blue-100 text-blue-700 px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider">{{ role }}</span>
+                    <span class="hidden sm:inline">KOPMA UM</span>
                 </div>
             </header>
 
-            <div class="p-6 flex-1">
-                
+            <!-- Ganti jadi overflow-y-auto untuk scrolling internal -->
+            <div class="p-3 sm:p-6 flex-1 overflow-y-auto">
+
                 <!-- 1. HALAMAN TRANSAKSI KASIR -->
-                <div v-if="page === 'pos'" class="flex flex-col lg:flex-row gap-6">
-                    <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl sticky top-0 z-10">
+                <!-- REVISI 1: Mengatur fixed height menggunakan flex & calc -->
+                <div v-if="page === 'pos'" class="flex flex-col lg:flex-row gap-6 items-start">
+                    
+                    <!-- KIRI: PRODUK (Scroll Mandiri) -->
+                    <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[60vh] lg:h-[calc(100vh-120px)]">
+                        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl shrink-0">
                             <h2 class="font-bold text-slate-700 text-lg">Daftar Produk</h2>
                             <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">{{ filteredProducts.length }} Item</span>
                         </div>
-                        <div class="p-6 bg-slate-50/50">
+                        <div class="p-6 bg-slate-50/50 flex-1 overflow-y-auto">
                             <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
                                 <div v-for="p in filteredProducts" :key="p.id" @click="addToCart(p)" 
                                      class="bg-white border rounded-xl p-4 cursor-pointer hover:shadow-lg hover:border-blue-400 transition-all transform hover:-translate-y-1 flex flex-col justify-between relative overflow-hidden"
                                      :class="p.stok > 0 ? 'border-slate-200' : 'border-red-200 opacity-60 grayscale'">
-                                    
+
                                     <div v-if="p.barcode" class="absolute top-0 right-0 bg-blue-100 text-blue-600 text-[9px] font-bold px-2 py-1 rounded-bl-lg">
                                         <i class="fas fa-barcode mr-1"></i>
                                     </div>
@@ -143,100 +159,104 @@
                         </div>
                     </div>
 
-                    <div class="w-full lg:w-1/3">
-                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 sticky top-24">
-                            <div class="p-6 bg-blue-600 text-white rounded-t-xl text-center shadow-inner relative z-10">
-                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
-                                <p class="text-blue-100 text-sm font-medium mb-1 relative z-10">Total Belanja</p>
-                                <h1 class="text-4xl font-bold tracking-tight relative z-10 break-words">Rp {{ total.toLocaleString('id-ID') }}</h1>
-                            </div>
-                            
-                            <div class="p-4 border-b border-slate-100 bg-slate-50/50 max-h-96 overflow-y-auto min-h-[250px]">
-                                <div v-for="(item, index) in cart" :key="index" class="flex justify-between items-center mb-3 bg-white p-3 rounded-lg border border-slate-100 shadow-sm transition-all">
-                                    <div class="flex-1 mr-2 overflow-hidden">
-                                        <p class="text-sm font-bold text-slate-700 truncate" :title="item.nama">{{ item.nama }}</p>
-                                        <p class="text-xs text-slate-400 mt-1">Rp {{ item.hargaJual.toLocaleString('id-ID') }}</p>
-                                    </div>
-                                    <div class="flex items-center space-x-1 bg-slate-100 rounded-md p-1 shrink-0">
-                                        <button @click="minQty(index)" class="w-8 h-8 bg-white text-slate-600 rounded shadow-sm hover:bg-slate-200 flex items-center justify-center"><i class="fas fa-minus text-xs"></i></button>
-                                        <span class="w-8 text-center text-sm font-bold">{{ item.qty }}</span>
-                                        <button @click="addQty(index)" class="w-8 h-8 bg-white text-slate-600 rounded shadow-sm hover:bg-slate-200 flex items-center justify-center"><i class="fas fa-plus text-xs"></i></button>
-                                    </div>
-                                    <div class="text-sm font-bold text-blue-600 w-24 text-right shrink-0">
-                                        {{ (item.hargaJual * item.qty).toLocaleString('id-ID') }}
-                                    </div>
+                    <!-- KANAN: KERANJANG & CHECKOUT (Scroll Mandiri / Fixed Bawah) -->
+                    <div class="w-full lg:w-1/3 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[70vh] lg:h-[calc(100vh-120px)]">
+                        <div class="p-6 bg-blue-600 text-white rounded-t-xl text-center shadow-inner relative shrink-0 z-10">
+                            <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
+                            <p class="text-blue-100 text-sm font-medium mb-1 relative z-10">Total Belanja</p>
+                            <h1 class="text-4xl font-bold tracking-tight relative z-10 break-words">Rp {{ total.toLocaleString('id-ID') }}</h1>
+                        </div>
+
+                        <!-- Area Scroll khusus isi keranjang -->
+                        <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex-1 overflow-y-auto min-h-[150px]">
+                            <div v-for="(item, index) in cart" :key="index" class="flex justify-between items-center mb-3 bg-white p-3 rounded-lg border border-slate-100 shadow-sm transition-all">
+                                <div class="flex-1 mr-2 overflow-hidden">
+                                    <p class="text-sm font-bold text-slate-700 truncate" :title="item.nama">{{ item.nama }}</p>
+                                    <p class="text-xs text-slate-400 mt-1">Rp {{ item.hargaJual.toLocaleString('id-ID') }}</p>
                                 </div>
-                                <div v-if="cart.length === 0" class="flex flex-col items-center justify-center h-full min-h-[150px] text-slate-400">
-                                    <i class="fas fa-shopping-basket text-4xl mb-3 opacity-30"></i><p class="text-sm">Keranjang masih kosong</p>
+                                <div class="flex items-center space-x-1 bg-slate-100 rounded-md p-1 shrink-0">
+                                    <button @click="minQty(index)" class="w-8 h-8 bg-white text-slate-600 rounded shadow-sm hover:bg-slate-200 flex items-center justify-center"><i class="fas fa-minus text-xs"></i></button>
+                                    <span class="w-8 text-center text-sm font-bold">{{ item.qty }}</span>
+                                    <button @click="addQty(index)" class="w-8 h-8 bg-white text-slate-600 rounded shadow-sm hover:bg-slate-200 flex items-center justify-center"><i class="fas fa-plus text-xs"></i></button>
+                                </div>
+                                <div class="text-sm font-bold text-blue-600 w-24 text-right shrink-0">
+                                    {{ (item.hargaJual * item.qty).toLocaleString('id-ID') }}
                                 </div>
                             </div>
-                            
-                            <div class="p-5 bg-white rounded-b-xl">
-                                <div class="flex justify-between items-center text-sm text-slate-600 mb-3 border-b border-dashed border-slate-200 pb-3">
-                                    <span>Subtotal</span><span class="font-bold">Rp {{ subtotal.toLocaleString('id-ID') }}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-sm text-slate-600 mb-5 border-b border-dashed border-slate-200 pb-3">
-                                    <span>Diskon (Rp)</span>
-                                    <input v-model.number="diskon" type="number" class="w-1/3 text-right bg-slate-50 border border-slate-200 rounded-md py-1.5 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow">
-                                </div>
-
-                                <div class="mb-4">
-                                    <p class="text-xs text-slate-500 mb-2 uppercase tracking-wider font-bold">Metode Pembayaran</p>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <button @click="metodeBayar = 'Tunai'" class="py-3 px-4 text-sm font-semibold rounded-lg border transition-all flex justify-center items-center space-x-2" :class="metodeBayar === 'Tunai' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm ring-1 ring-blue-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
-                                            <i class="fas fa-money-bill-wave text-lg"></i><span>Tunai</span>
-                                        </button>
-                                        <button @click="metodeBayar = 'QRIS'" class="py-3 px-4 text-sm font-semibold rounded-lg border transition-all flex justify-center items-center space-x-2" :class="metodeBayar === 'QRIS' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm ring-1 ring-blue-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
-                                            <i class="fas fa-qrcode text-lg"></i><span>QRIS</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div v-if="metodeBayar === 'Tunai'" class="mb-5 transition-all">
-                                    <p class="text-xs text-slate-500 mb-2 uppercase tracking-wider font-bold">Jumlah Uang Diterima</p>
-                                    <div class="relative">
-                                        <span class="absolute left-4 top-3 text-slate-400 font-bold text-lg">Rp</span>
-                                        <input v-model.number="uangDiterima" type="number" class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-xl text-slate-700 transition-shadow shadow-inner">
-                                    </div>
-                                    <div class="flex space-x-2 mt-3">
-                                        <button @click="setUang('pas')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm py-2 rounded-lg font-semibold transition-colors border border-slate-200">Uang Pas</button>
-                                        <button @click="setUang(50000)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm py-2 rounded-lg font-semibold transition-colors border border-slate-200">50k</button>
-                                        <button @click="setUang(100000)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm py-2 rounded-lg font-semibold transition-colors border border-slate-200">100k</button>
-                                    </div>
-                                </div>
-
-                                <div v-if="metodeBayar === 'Tunai' && kembalian >= 0" class="flex justify-between items-center mb-5 p-4 bg-emerald-50 rounded-xl border border-emerald-200 shadow-sm">
-                                    <span class="text-emerald-700 font-bold">Kembalian</span>
-                                    <span class="text-emerald-700 font-black text-xl">Rp {{ kembalian.toLocaleString('id-ID') }}</span>
-                                </div>
-
-                                <!-- UI KONEKSI PRINTER QZ TRAY -->
-                                <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider"><i class="fas fa-print mr-1"></i> Printer Thermal</span>
-                                        <span :class="qzConnected ? 'text-emerald-500' : 'text-rose-500'" class="text-[10px] font-bold flex items-center border px-2 py-1 rounded-full" :class="qzConnected ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'">
-                                            <span class="w-2 h-2 rounded-full mr-1.5" :class="qzConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
-                                            {{ qzConnected ? 'Siap' : 'Offline' }}
-                                        </span>
-                                    </div>
-                                    <select v-model="selectedPrinter" class="w-full p-2 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 appearance-none font-medium text-slate-700">
-                                        <option value="">-- Pilih Printer --</option>
-                                        <option v-for="p in daftarPrinter" :key="p" :value="p">{{ p }}</option>
-                                    </select>
-                                </div>
-
-                                <button @click="simpanTransaksi" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-lg">
-                                    <i class="fas fa-print"></i><span>Simpan & Cetak Struk</span>
-                                </button>
+                            <div v-if="cart.length === 0" class="flex flex-col items-center justify-center h-full min-h-[150px] text-slate-400">
+                                <i class="fas fa-shopping-basket text-4xl mb-3 opacity-30"></i><p class="text-sm">Keranjang kosong</p>
                             </div>
+                        </div>
+
+                        <!-- Area Fixed Checkout -->
+                        <div class="p-5 bg-white rounded-b-xl shrink-0 border-t border-slate-200">
+                            <div class="flex justify-between items-center text-sm text-slate-600 mb-2 border-b border-dashed border-slate-200 pb-2">
+                                <span>Subtotal</span><span class="font-bold">Rp {{ subtotal.toLocaleString('id-ID') }}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm text-slate-600 mb-3 border-b border-dashed border-slate-200 pb-2">
+                                <span>Diskon (Rp)</span>
+                                <input v-model.number="diskon" type="number" class="w-1/3 text-right bg-slate-50 border border-slate-200 rounded-md py-1 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow text-xs">
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button @click="metodeBayar = 'Tunai'" class="py-2 px-3 text-xs font-semibold rounded-lg border transition-all flex justify-center items-center space-x-2" :class="metodeBayar === 'Tunai' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm ring-1 ring-blue-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
+                                        <i class="fas fa-money-bill-wave"></i><span>Tunai</span>
+                                    </button>
+                                    <button @click="metodeBayar = 'QRIS'" class="py-2 px-3 text-xs font-semibold rounded-lg border transition-all flex justify-center items-center space-x-2" :class="metodeBayar === 'QRIS' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm ring-1 ring-blue-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
+                                        <i class="fas fa-qrcode"></i><span>QRIS</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="metodeBayar === 'Tunai'" class="mb-3 transition-all">
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-slate-400 font-bold">Rp</span>
+                                    <input v-model.number="uangDiterima" type="number" class="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700 transition-shadow shadow-inner">
+                                </div>
+                                <div class="flex space-x-2 mt-2">
+                                    <button @click="setUang('pas')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] py-1.5 rounded-md font-semibold border border-slate-200">Pas</button>
+                                    <button @click="setUang(50000)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] py-1.5 rounded-md font-semibold border border-slate-200">50k</button>
+                                    <button @click="setUang(100000)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] py-1.5 rounded-md font-semibold border border-slate-200">100k</button>
+                                </div>
+                            </div>
+
+                            <div v-if="metodeBayar === 'Tunai' && kembalian >= 0" class="flex justify-between items-center mb-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200 shadow-sm">
+                                <span class="text-emerald-700 font-bold text-xs">Kembali</span>
+                                <span class="text-emerald-700 font-black text-sm">Rp {{ kembalian.toLocaleString('id-ID') }}</span>
+                            </div>
+
+                            <div class="mb-3 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[10px] font-bold text-slate-600 uppercase"><i class="fas fa-print mr-1"></i> Printer</span>
+                                    <span :class="qzConnected ? 'text-emerald-500' : 'text-rose-500'" class="text-[9px] font-bold flex items-center border px-1.5 py-0.5 rounded-full" :class="qzConnected ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'">
+                                        <span class="w-1.5 h-1.5 rounded-full mr-1" :class="qzConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
+                                        {{ qzConnected ? 'Siap' : 'Offline' }}
+                                    </span>
+                                </div>
+                                <select v-model="selectedPrinter" class="w-full p-1.5 bg-white border border-slate-300 rounded text-xs focus:ring-2 focus:ring-blue-500 appearance-none font-medium text-slate-700">
+                                    <option value="">-- Printer --</option>
+                                    <option v-for="p in daftarPrinter" :key="p" :value="p">{{ p }}</option>
+                                </select>
+                            </div>
+
+                            <button @click="simpanTransaksi" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-sm">
+                                <i class="fas fa-print"></i><span>Simpan & Cetak</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- 2. HALAMAN MASTER PRODUK -->
                 <div v-if="page === 'produk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200">
-                    <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                        <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-boxes text-blue-500 mr-2"></i> Manajemen Data Produk</h2>
+                    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-boxes text-blue-500 mr-2"></i> Data Produk</h2>
+                        
+                        <!-- REVISI 3: Input Pencarian Master Produk -->
+                        <div class="relative w-full sm:w-64">
+                            <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                            <input v-model="searchMaster" type="text" placeholder="Scan Barcode / Cari nama..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                        </div>
                     </div>
                     <div class="p-6">
                         <form @submit.prevent="simpanProduk" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8 bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-inner">
@@ -263,7 +283,8 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
+                                    <!-- Loop menggunakan data yang di-filter (REVISI 3) -->
+                                    <tr v-for="p in filteredMasterProducts" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
                                         <td class="p-4 font-mono text-xs text-slate-500">{{ p.barcode || '-' }}</td>
                                         <td class="p-4 font-bold text-slate-800">{{ p.nama }}</td>
                                         <td class="p-4"><span class="bg-slate-200 text-slate-600 px-3 py-1 rounded-md text-xs font-medium">{{ p.kategori }}</span></td>
@@ -277,8 +298,8 @@
                                     </tr>
                                 </tbody>
                             </table>
-                            <div v-if="products.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
-                                <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Belum ada data produk tersimpan.</p>
+                            <div v-if="filteredMasterProducts.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
+                                <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Data produk tidak ditemukan.</p>
                             </div>
                         </div>
                     </div>
@@ -292,26 +313,35 @@
                     <div class="p-8">
                         <div class="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-lg">
                             <form @submit.prevent="prosesBarangMasuk" class="space-y-6">
+                                <!-- REVISI 3: Ganti Select dengan Input Text & Auto-detect -->
                                 <div>
-                                    <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Pilih Produk</label>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Cari Produk (Ketik / Scan)</label>
                                     <div class="relative">
-                                        <select v-model="formBarangMasuk.idProduk" required class="w-full p-4 pl-4 pr-10 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 appearance-none font-medium text-slate-700">
-                                            <option value="" disabled>-- Pilih Produk dari Daftar --</option>
-                                            <option v-for="p in products" :key="p.id" :value="p.id">
-                                                {{ p.barcode ? '['+p.barcode+'] ' : '' }}{{ p.nama }} (Sisa Stok: {{ p.stok }})
-                                            </option>
-                                        </select>
-                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"><i class="fas fa-chevron-down"></i></div>
+                                        <i class="fas fa-barcode absolute left-4 top-4 text-slate-400"></i>
+                                        <input v-model="searchBarangMasuk" @input="cariProdukMasuk" @keyup.enter.prevent="cariProdukMasuk" type="text" placeholder="Scan Barcode / Ketik nama produk..." class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700 transition-colors">
+                                    </div>
+                                    
+                                    <!-- Info Produk Ditemukan -->
+                                    <div v-if="selectedProdukMasuk" class="mt-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center animate-pulse-once">
+                                        <div>
+                                            <p class="text-sm font-bold text-emerald-800">{{ selectedProdukMasuk.nama }}</p>
+                                            <p class="text-xs text-emerald-600 mt-1"><i class="fas fa-boxes mr-1"></i>Sisa Stok Gudang: <span class="font-bold">{{ selectedProdukMasuk.stok }}</span></p>
+                                        </div>
+                                        <i class="fas fa-check-circle text-emerald-500 text-3xl"></i>
+                                    </div>
+                                    <div v-else-if="searchBarangMasuk.length > 1" class="mt-2 text-xs text-rose-500 font-bold ml-1">
+                                        <i class="fas fa-exclamation-circle mr-1"></i> Produk tidak ditemukan di Master Data.
                                     </div>
                                 </div>
+                                
                                 <div>
                                     <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Jumlah Tambahan Stok</label>
                                     <div class="relative">
-                                        <i class="fas fa-boxes absolute left-4 top-4 text-slate-400"></i>
-                                        <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-xl text-slate-800">
+                                        <i class="fas fa-plus absolute left-4 top-4 text-slate-400"></i>
+                                        <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-xl text-slate-800">
                                     </div>
                                 </div>
-                                <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
+                                <button type="submit" :disabled="!selectedProdukMasuk" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
                                     <i class="fas fa-plus-circle"></i> <span>Tambahkan Stok ke Gudang</span>
                                 </button>
                             </form>
@@ -463,7 +493,7 @@
                                 </button>
                             </form>
                         </div>
-                        
+
                         <div class="w-full md:w-2/3 p-0 overflow-y-auto max-h-[300px]">
                             <table class="w-full text-left border-collapse">
                                 <thead>
@@ -490,6 +520,18 @@
             </div>
         </main>
 
+        <!-- Pemindai barcode kamera (browser meminta izin saat pertama dibuka) -->
+        <div v-if="cameraOpen" class="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4 no-print">
+            <div class="w-full max-w-lg bg-white rounded-2xl p-4 shadow-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-slate-800"><i class="fas fa-camera text-blue-600 mr-2"></i>Scan Barcode</h2>
+                    <button @click="stopCamera" class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600" aria-label="Tutup kamera"><i class="fas fa-times"></i></button>
+                </div>
+                <video ref="cameraVideo" autoplay playsinline class="w-full rounded-xl bg-black aspect-video object-cover"></video>
+                <p class="text-sm text-slate-500 text-center mt-3">Arahkan barcode ke kamera. Pastikan izin kamera diberikan.</p>
+            </div>
+        </div>
+
         <!-- ========================================== -->
         <!-- MODAL LOGIN (OVERLAY BLUR) -->
         <!-- ========================================== -->
@@ -500,7 +542,7 @@
                     <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">KASIR KOPMA UM</h1>
                     <p class="text-sm text-slate-500 mt-2 font-medium">{{ isLoginMode ? 'Silakan login untuk mengakses sistem kasir' : 'Pendaftaran Akun Pegawai Baru' }}</p>
                 </div>
-                
+
                 <form @submit.prevent="prosesAuth" class="space-y-5">
                     <div class="relative">
                         <i class="fas fa-user absolute left-4 top-3.5 text-slate-400 text-lg"></i>
@@ -510,7 +552,7 @@
                         <i class="fas fa-lock absolute left-4 top-3.5 text-slate-400 text-lg"></i>
                         <input v-model="password" type="password" required class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-base font-medium transition-shadow" placeholder="Kata Sandi">
                     </div>
-                    
+
                     <div v-if="!isLoginMode" class="relative mt-2">
                         <i class="fas fa-id-badge absolute left-4 top-3.5 text-blue-500 text-lg z-10"></i>
                         <select v-model="registerRole" class="w-full pl-12 pr-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-xl focus:outline-none text-base appearance-none relative">
@@ -519,12 +561,12 @@
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-blue-500"><i class="fas fa-chevron-down"></i></div>
                     </div>
-                    
+
                     <button type="submit" class="w-full text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg flex justify-center items-center space-x-3 text-lg mt-6" :class="isLoginMode ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30' : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/30'">
                         <i :class="isLoginMode ? 'fas fa-sign-in-alt' : 'fas fa-user-plus'"></i><span>{{ isLoginMode ? 'Masuk ke Sistem' : 'Buat Akun Sekarang' }}</span>
                     </button>
                 </form>
-                
+
                 <div class="mt-8 text-center text-xs text-slate-400 border-t border-slate-100 pt-6">
                     <button @click="bukaFormDaftar" class="hover:text-blue-600 transition inline-flex items-center space-x-1 font-medium bg-slate-50 px-4 py-2 rounded-full border border-slate-200 hover:border-blue-300">
                         <i class="fas fa-cog"></i><span>{{ isLoginMode ? 'Manajemen Akun (Khusus Pemilik)' : 'Batal & Kembali ke Halaman Login' }}</span>
@@ -567,7 +609,7 @@
 
     <!-- Script Vue.js & Firebase -->
     <script type="module">
-        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        import { createApp, ref, computed, onMounted, onUnmounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, writeBatch, setDoc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
@@ -592,22 +634,33 @@
                 const username = ref('');
                 const password = ref('');
                 const registerRole = ref('kasir');
-                
+
                 const role = ref(null);
                 const currentUser = ref('');
                 const page = ref('pos');
                 const products = ref([]);
                 const search = ref('');
-                
+                const mobileMenuOpen = ref(false);
+                const cameraOpen = ref(false);
+                const cameraVideo = ref(null);
+                const cameraStream = ref(null);
+                const cameraControls = ref(null);
+                let cameraFrame = null;
+
+                // REVISI 3: Tambahan Variabel
+                const searchMaster = ref(''); // Untuk cari di Master Produk
+                const searchBarangMasuk = ref(''); // Untuk cari di Barang Masuk
+                const selectedProdukMasuk = ref(null); // Menyimpan produk yang dipilih/discan
+
                 const cart = ref([]);
                 const diskon = ref(0);
                 const metodeBayar = ref('Tunai'); 
                 const uangDiterima = ref(0);
                 const strukAktif = ref(null);
-                
+
                 const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' });
                 const formBarangMasuk = ref({ idProduk: '', jumlah: '' });
-                
+
                 const editMode = ref(false);
                 const editId = ref(null);
 
@@ -646,7 +699,7 @@
                         snapshot.forEach(doc => temp.push({ id: doc.id, ...doc.data() }));
                         products.value = temp;
                     });
-                    
+
                     const qTrx = query(collection(db, "transactions"), orderBy("tanggal", "desc"));
                     onSnapshot(qTrx, (snapshot) => {
                         let tempTrx = [];
@@ -683,7 +736,7 @@
                     doc.text("Universitas Negeri Malang", midX, y, { align: "center" }); y += 4;
                     doc.text(`Kasir: ${t.kasir}`, midX, y, { align: "center" }); y += 3;
                     doc.text(formatTanggal(t.tanggal), midX, y, { align: "center" }); y += 4;
-                    
+
                     doc.setFont("helvetica", "bold");
                     doc.text(`No. Pesanan: ${t.nomorAntrian || '-'}`, midX, y, { align: "center" }); y += 3;
                     doc.setFont("helvetica", "normal");
@@ -696,7 +749,7 @@
                         doc.text(splitTitle, leftX, y);
                         y += (splitTitle.length * 3) + 1;
                         doc.setFont("helvetica", "normal");
-                        
+
                         doc.text(`${item.qty} x ${item.hargaJual.toLocaleString('id-ID')}`, leftX, y);
                         doc.text((item.qty * item.hargaJual).toLocaleString('id-ID'), rightX, y, { align: "right" });
                         y += 4;
@@ -729,7 +782,6 @@
                     } catch (e) { console.error("Barcode error", e); }
                 };
 
-                // --- FUNGSI UNDUH 1 STRUK ---
                 const downloadStrukPDF = (t) => {
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
@@ -737,22 +789,29 @@
                     doc.save(`Struk_Digital_${t.id}.pdf`);
                 };
 
-                // --- FUNGSI UNDUH & MERGE SEMUA STRUK ---
                 const downloadSemuaStrukPDF = () => {
                     if(daftarTransaksiTerfilter.value.length === 0) return alert("Tidak ada data transaksi!");
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 200] });
-                    
+
                     daftarTransaksiTerfilter.value.forEach((t, index) => {
                         if (index > 0) doc.addPage();
                         buatKontenStrukPDF(doc, t);
                     });
-                    
+
                     doc.save("Kumpulan_Struk_Transaksi.pdf");
                 };
 
+                // Filter Kasir
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
+                    if (!keyword) return products.value;
+                    return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
+                });
+
+                // REVISI 3: Filter Khusus Master Data (agar tidak campur aduk dengan Search Kasir)
+                const filteredMasterProducts = computed(() => {
+                    const keyword = searchMaster.value.toLowerCase().trim();
                     if (!keyword) return products.value;
                     return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
                 });
@@ -760,7 +819,7 @@
                 const subtotal = computed(() => cart.value.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0));
                 const total = computed(() => subtotal.value - diskon.value);
                 const kembalian = computed(() => uangDiterima.value - total.value);
-                
+
                 const daftarTransaksiTerfilter = computed(() => {
                     let result = daftarTransaksi.value;
                     if (filterTransaksi.value !== 'Semua') result = result.filter(t => t.metodeBayar === filterTransaksi.value);
@@ -795,6 +854,90 @@
                     if (!scannedCode) return;
                     const matchedProduct = products.value.find(p => p.barcode && p.barcode.toLowerCase() === scannedCode.toLowerCase());
                     if (matchedProduct) { addToCart(matchedProduct); search.value = ''; }
+                };
+
+                const stopCamera = () => {
+                    cameraOpen.value = false;
+                    if (cameraFrame !== null) cancelAnimationFrame(cameraFrame);
+                    cameraFrame = null;
+                    if (cameraControls.value) cameraControls.value.stop();
+                    cameraControls.value = null;
+                    if (cameraStream.value) cameraStream.value.getTracks().forEach(track => track.stop());
+                    cameraStream.value = null;
+                };
+
+                const startCamera = async () => {
+                    if (!navigator.mediaDevices?.getUserMedia) {
+                        return alert('Akses kamera tidak tersedia. Buka halaman melalui HTTPS dan izinkan kamera.');
+                    }
+                    try {
+                        cameraOpen.value = true;
+                        await nextTick();
+                        if ('BarcodeDetector' in window) {
+                            cameraStream.value = await navigator.mediaDevices.getUserMedia({
+                                video: { facingMode: { ideal: 'environment' } }, audio: false
+                            });
+                            cameraVideo.value.srcObject = cameraStream.value;
+                            await cameraVideo.value.play();
+                            const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'] });
+                            const scanFrame = async () => {
+                                if (!cameraOpen.value || !cameraVideo.value) return;
+                                try {
+                                    const codes = await detector.detect(cameraVideo.value);
+                                    if (codes.length && codes[0].rawValue) {
+                                        search.value = codes[0].rawValue;
+                                        handleBarcodeScan();
+                                        stopCamera();
+                                        return;
+                                    }
+                                } catch (error) {
+                                    console.warn('Gagal membaca barcode dari kamera:', error);
+                                }
+                                if (cameraOpen.value) cameraFrame = requestAnimationFrame(scanFrame);
+                            };
+                            cameraFrame = requestAnimationFrame(scanFrame);
+                        } else if (window.ZXingBrowser?.BrowserMultiFormatReader) {
+                            const reader = new ZXingBrowser.BrowserMultiFormatReader();
+                            cameraControls.value = await reader.decodeFromVideoDevice(undefined, cameraVideo.value, result => {
+                                if (result) {
+                                    search.value = result.getText();
+                                    handleBarcodeScan();
+                                    stopCamera();
+                                }
+                            });
+                        } else {
+                            stopCamera();
+                            alert('Library pemindai tidak berhasil dimuat. Periksa koneksi internet lalu coba lagi.');
+                        }
+                    } catch (error) {
+                        stopCamera();
+                        alert('Kamera tidak dapat dibuka. Periksa izin kamera dan pastikan halaman menggunakan HTTPS.');
+                    }
+                };
+
+                onUnmounted(stopCamera);
+
+                // REVISI 3: Fungsi Pencarian & Auto-Detect untuk Barang Masuk
+                const cariProdukMasuk = () => {
+                    const keyword = searchBarangMasuk.value.toLowerCase().trim();
+                    if (!keyword) { 
+                        selectedProdukMasuk.value = null; 
+                        formBarangMasuk.value.idProduk = ''; 
+                        return; 
+                    }
+                    // Cari exact match barcode dulu
+                    let match = products.value.find(p => p.barcode && p.barcode.toLowerCase() === keyword);
+                    // Jika barcode tidak ketemu, cari berdasarkan nama
+                    if (!match) {
+                        match = products.value.find(p => p.nama.toLowerCase().includes(keyword));
+                    }
+
+                    selectedProdukMasuk.value = match || null;
+                    if (match) {
+                        formBarangMasuk.value.idProduk = match.id;
+                    } else {
+                        formBarangMasuk.value.idProduk = '';
+                    }
                 };
 
                 const bukaFormDaftar = () => {
@@ -835,9 +978,9 @@
                     });
                     formPengeluaran.value = { keterangan: '', nominal: '' }; alert("Pengeluaran berhasil dicatat!");
                 };
-                
+
                 const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
-                
+
                 const siapkanEdit = (p) => {
                     editMode.value = true;
                     editId.value = p.id;
@@ -866,21 +1009,30 @@
                 const hapusProduk = async (id) => { if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id)); };
 
                 const prosesBarangMasuk = async () => {
-                    const prodId = formBarangMasuk.value.idProduk; const jumlah = formBarangMasuk.value.jumlah;
+                    const prodId = formBarangMasuk.value.idProduk; 
+                    const jumlah = formBarangMasuk.value.jumlah;
                     if (!prodId || jumlah <= 0) return alert("Pilih produk dan masukkan jumlah yang valid!");
+                    
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
                         try {
                             const batch = writeBatch(db);
                             batch.update(doc(db, "products", prodId), { stok: prodAsli.stok + jumlah });
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
+                            
                             if (totalBiayaKulakan > 0) {
                                 const pRef = doc(collection(db, "pengeluaran"));
                                 batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
                             }
                             await batch.commit();
                             alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
-                            formBarangMasuk.value = { idProduk: '', jumlah: '' }; page.value = 'produk';
+                            
+                            // Reset state setelah simpan (REVISI 3)
+                            formBarangMasuk.value = { idProduk: '', jumlah: '' };
+                            searchBarangMasuk.value = '';
+                            selectedProdukMasuk.value = null;
+                            page.value = 'produk';
+
                         } catch (error) { alert("Terjadi kesalahan: " + error.message); }
                     }
                 };
@@ -890,7 +1042,7 @@
                     let item = cart.value.find(i => i.id === p.id);
                     if (item) { if(item.qty < p.stok) item.qty++; else alert("Stok tidak mencukupi!"); } else { cart.value.push({ ...p, qty: 1 }); }
                 };
-                
+
                 const addQty = (index) => {
                     let item = cart.value[index];
                     let prodAsli = products.value.find(p => p.id === item.id);
@@ -901,7 +1053,6 @@
                     else cart.value.splice(index, 1);
                 };
 
-                // MENCETAK VIA QZ TRAY DENGAN LOGO HITAM PUTIH KECIL (RESIZE CANVAS)
                 const cetakStrukQZ = async (struk) => {
                     if (!qzConnected.value || !selectedPrinter.value) {
                         window.print(); 
@@ -916,29 +1067,28 @@
                         return leftStr + " ".repeat(spaceLen) + rightStr + '\n';
                     };
 
-                    // Ambil dan resize file logo secara paksa (Anti Gagal)
                     let logoBase64 = null;
                     try {
                         let url = window.location.href.split('?')[0];
                         if (url.endsWith('.html')) url = url.substring(0, url.lastIndexOf('/') + 1);
                         if (!url.endsWith('/')) url += '/';
-                        
+
                         logoBase64 = await new Promise((resolve, reject) => {
                             let img = new Image();
                             img.crossOrigin = "Anonymous";
                             img.onload = () => {
                                 let canvas = document.createElement("canvas");
-                                let targetWidth = 100; // Lebar logo paksa (pas untuk 58mm)
+                                let targetWidth = 100;
                                 let targetHeight = (img.height / img.width) * targetWidth;
-                                
+
                                 canvas.width = targetWidth;
                                 canvas.height = targetHeight;
                                 let ctx = canvas.getContext("2d");
-                                
+
                                 ctx.fillStyle = "#FFFFFF";
                                 ctx.fillRect(0, 0, targetWidth, targetHeight);
                                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-                                
+
                                 resolve(canvas.toDataURL("image/png"));
                             };
                             img.onerror = () => reject("Gambar gagal dimuat");
@@ -950,11 +1100,10 @@
 
                     let config = qz.configs.create(selectedPrinter.value);
                     let data = [
-                        '\x1B' + '\x40',          // Init printer (ESC @)
-                        '\x1B' + '\x61' + '\x01', // Rata Tengah
+                        '\x1B' + '\x40',          
+                        '\x1B' + '\x61' + '\x01', 
                     ];
 
-                    // Sisipkan logo yang sudah di-resize
                     if (logoBase64) {
                         data.push({
                             type: 'raw',
@@ -963,21 +1112,21 @@
                             data: logoBase64.split(',')[1],
                             options: { language: 'ESCPOS', dotDensity: 'single' }
                         });
-                        data.push('\x0A'); // Spasi enter
+                        data.push('\x0A'); 
                     }
 
                     data.push(
-                        '\x1B' + '\x45' + '\x01', // Bold on
+                        '\x1B' + '\x45' + '\x01', 
                         'KOPMA UM\n',
-                        '\x1B' + '\x45' + '\x00', // Bold off
+                        '\x1B' + '\x45' + '\x00', 
                         'Universitas Negeri Malang\n',
                         'Kasir: ' + struk.kasir + '\n',
                         formatTanggal(struk.tanggal) + '\n',
-                        '\x1B' + '\x45' + '\x01', // Bold on
+                        '\x1B' + '\x45' + '\x01', 
                         'No. Pesanan: ' + (struk.nomorAntrian || '-') + '\n',
-                        '\x1B' + '\x45' + '\x00', // Bold off
+                        '\x1B' + '\x45' + '\x00', 
                         '--------------------------------\n',
-                        '\x1B' + '\x61' + '\x00', // Rata Kiri
+                        '\x1B' + '\x61' + '\x00', 
                     );
 
                     struk.cart.forEach(item => {
@@ -990,22 +1139,22 @@
                     data.push('--------------------------------\n');
                     data.push(formatLine('Subtotal:', struk.subtotal.toLocaleString('id-ID')));
                     if (struk.diskon > 0) data.push(formatLine('Diskon:', '-' + struk.diskon.toLocaleString('id-ID')));
-                    
-                    data.push('\x1B' + '\x45' + '\x01'); // Bold on
+
+                    data.push('\x1B' + '\x45' + '\x01'); 
                     data.push(formatLine('TOTAL:', struk.total.toLocaleString('id-ID')));
-                    data.push('\x1B' + '\x45' + '\x00'); // Bold off
-                    
+                    data.push('\x1B' + '\x45' + '\x00'); 
+
                     data.push('--------------------------------\n');
                     data.push(formatLine('Metode:', struk.metodeBayar));
                     if (struk.metodeBayar === 'Tunai') {
                         data.push(formatLine('Bayar:', struk.uangDiterima.toLocaleString('id-ID')));
                         data.push(formatLine('Kembali:', struk.kembalian.toLocaleString('id-ID')));
                     }
-                    
-                    data.push('\x1B' + '\x61' + '\x01'); // Center align
+
+                    data.push('\x1B' + '\x61' + '\x01'); 
                     data.push('\nTerima Kasih Atas Kunjungan Anda\n');
-                    data.push('\x0A\x0A\x0A\x0A\x0A'); // Feed kertas
-                    data.push('\x1D' + '\x56' + '\x41' + '\x00'); // Full Cut Paper command
+                    data.push('\x0A\x0A\x0A\x0A\x0A'); 
+                    data.push('\x1D' + '\x56' + '\x41' + '\x00'); 
 
                     qz.print(config, data).catch(err => {
                         alert("Gagal mencetak via QZ Tray: " + err);
@@ -1016,16 +1165,15 @@
                 const simpanTransaksi = async () => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
 
-                    // Hitung nomor urut (antrian) hari ini
                     const tglSekarang = new Date();
                     const stringHariIni = `${tglSekarang.getFullYear()}-${String(tglSekarang.getMonth() + 1).padStart(2, '0')}-${String(tglSekarang.getDate()).padStart(2, '0')}`;
-                    
+
                     const hitungTrxHariIni = daftarTransaksi.value.filter(t => {
                         const dateObj = new Date(t.tanggal);
                         return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
                     }).length;
-                    
-                    const nomorAntrian = hitungTrxHariIni + 1; // Ditambah 1 untuk urutan transaksi ini
+
+                    const nomorAntrian = hitungTrxHariIni + 1; 
 
                     const batch = writeBatch(db);
                     cart.value.forEach(item => {
@@ -1075,7 +1223,9 @@
                 };
 
                 return {
-                    isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts, 
+                    isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts,
+                    mobileMenuOpen, cameraOpen, cameraVideo, startCamera, stopCamera,
+                    searchMaster, filteredMasterProducts, searchBarangMasuk, selectedProdukMasuk, cariProdukMasuk, // Variabel tambahan
                     formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
@@ -1089,4 +1239,3 @@
     </script>
 </body>
 </html>
-
