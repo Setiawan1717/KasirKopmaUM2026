@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script> <!-- QZ Tray Printer -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script> <!-- Barcode Generator -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- Ekspor PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script> <!-- Tabel PDF Rapi -->
     <script src="https://unpkg.com/html5-qrcode"></script> <!-- Kamera Barcode Scanner HP -->
     
     <style>
@@ -97,7 +98,7 @@
             
             <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 flex-shrink-0 border-b border-slate-200 gap-4 min-h-[72px]">
                 <!-- Kolom Search & Scan HP HANYA MUNCUL DI HALAMAN TRANSAKSI (POS) -->
-                <div v-if="page === 'pos'" class="flex items-center w-full max-w-lg gap-2">
+                <div v-if="page === 'pos'" class="flex items-center w-full max-w-xl gap-2">
                     <div class="relative flex-1">
                         <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
                         <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
@@ -106,6 +107,12 @@
                     <button @click="bukaKamera('pos')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition flex items-center space-x-2 font-bold shrink-0" title="Scan Barcode Pakai Kamera HP">
                         <i class="fas fa-camera"></i>
                         <span class="hidden sm:inline text-sm">Scan HP</span>
+                    </button>
+                    <!-- Tombol Pintasan Atur Modal Awal Laci Hari Ini -->
+                    <button @click="bukaModalInputSaldoAwalHariIni" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 font-bold shrink-0 text-xs" title="Atur Uang Modal Kembalian di Laci Hari Ini">
+                        <i class="fas fa-cash-register text-amber-600"></i>
+                        <span class="hidden md:inline">Modal Laci:</span>
+                        <span>Rp {{ modalCashHariIni.toLocaleString('id-ID') }}</span>
                     </button>
                 </div>
                 <!-- Judul Halaman selain Transaksi Kasir -->
@@ -409,22 +416,39 @@
                                         <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" placeholder="Masukkan jumlah stok masuk..." class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none font-bold text-xl text-slate-800">
                                     </div>
                                 </div>
+
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Sumber Dana Kulakan</label>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button type="button" @click="formBarangMasuk.metode = 'Tunai'" class="py-2.5 px-4 text-sm font-bold rounded-xl border transition-all flex justify-center items-center space-x-2" :class="formBarangMasuk.metode === 'Tunai' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-1 ring-emerald-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
+                                            <i class="fas fa-money-bill-wave"></i><span>Kas Tunai (Cash)</span>
+                                        </button>
+                                        <button type="button" @click="formBarangMasuk.metode = 'QRIS'" class="py-2.5 px-4 text-sm font-bold rounded-xl border transition-all flex justify-center items-center space-x-2" :class="formBarangMasuk.metode === 'QRIS' ? 'bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500' : 'border-slate-200 text-slate-500 hover:bg-slate-50'">
+                                            <i class="fas fa-qrcode"></i><span>Saldo QRIS / Bank</span>
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <button type="submit" :disabled="!formBarangMasuk.idProduk || !formBarangMasuk.jumlah" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
                                     <i class="fas fa-plus-circle"></i> <span>Tambahkan Stok ke Gudang</span>
                                 </button>
                             </form>
-                            <p class="text-xs text-slate-400 text-center mt-4"><i class="fas fa-info-circle"></i> Nilai stok akan otomatis dicatat sebagai Pengeluaran Modal.</p>
+                            <p class="text-xs text-slate-400 text-center mt-4"><i class="fas fa-info-circle"></i> Nilai stok akan otomatis dicatat sebagai Pengeluaran Modal sesuai sumber dana.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. HALAMAN RIWAYAT TRANSAKSI DENGAN PDF -->
+                <!-- 4. HALAMAN RIWAYAT TRANSAKSI DENGAN PDF & LAPORAN HARIAN -->
                 <div v-if="page === 'riwayat' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
                     <div class="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center bg-slate-50 rounded-t-xl gap-4 flex-shrink-0">
-                        <div class="flex items-center">
-                            <h2 class="text-xl font-bold text-slate-800 mr-4"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
-                            <button @click="downloadSemuaStrukPDF" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1">
-                                <i class="fas fa-file-pdf"></i> <span>Unduh Semua Struk (PDF)</span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-xl font-bold text-slate-800 mr-2"><i class="fas fa-history text-indigo-500 mr-2"></i> Riwayat Transaksi</h2>
+                            <!-- Tombol Buka Modal Laporan Harian -->
+                            <button @click="bukaModalLaporanHarian" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1.5">
+                                <i class="fas fa-file-contract"></i> <span>Laporan Harian (PDF)</span>
+                            </button>
+                            <button @click="downloadSemuaStrukPDF" class="bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm flex items-center space-x-1.5">
+                                <i class="fas fa-file-pdf"></i> <span>Unduh Semua Struk</span>
                             </button>
                         </div>
 
@@ -556,23 +580,39 @@
                                         <input v-model.number="formPengeluaran.nominal" type="number" required min="1" class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 font-bold text-sm">
                                     </div>
                                 </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">Sumber Dana</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button type="button" @click="formPengeluaran.metode = 'Tunai'" class="py-2 px-3 text-xs font-bold rounded-lg border transition-all flex justify-center items-center space-x-1" :class="formPengeluaran.metode === 'Tunai' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-slate-300 text-slate-500'">
+                                            <i class="fas fa-money-bill-wave"></i><span>Tunai (Cash)</span>
+                                        </button>
+                                        <button type="button" @click="formPengeluaran.metode = 'QRIS'" class="py-2 px-3 text-xs font-bold rounded-lg border transition-all flex justify-center items-center space-x-1" :class="formPengeluaran.metode === 'QRIS' ? 'bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500' : 'bg-white border-slate-300 text-slate-500'">
+                                            <i class="fas fa-qrcode"></i><span>QRIS</span>
+                                        </button>
+                                    </div>
+                                </div>
                                 <button type="submit" class="w-full bg-slate-800 text-white font-bold py-3 rounded-lg hover:bg-slate-900 transition flex items-center justify-center space-x-2 text-sm shadow-md">
                                     <i class="fas fa-plus"></i> <span>Simpan Pengeluaran</span>
                                 </button>
                             </form>
                         </div>
                         
-                        <div class="w-full md:w-2/3 p-0 overflow-y-auto max-h-[300px]">
+                        <div class="w-full md:w-2/3 p-0 overflow-y-auto max-h-[340px]">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="bg-white text-slate-500 text-xs uppercase tracking-wider sticky top-0 shadow-sm">
-                                        <th class="p-4 font-semibold border-b">Tanggal</th><th class="p-4 font-semibold border-b">Keterangan</th><th class="p-4 font-semibold border-b text-right">Nominal</th><th class="p-4 font-semibold border-b text-center">Aksi</th>
+                                        <th class="p-4 font-semibold border-b">Tanggal</th><th class="p-4 font-semibold border-b">Keterangan</th><th class="p-4 font-semibold border-b text-center">Metode</th><th class="p-4 font-semibold border-b text-right">Nominal</th><th class="p-4 font-semibold border-b text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     <tr v-for="p in daftarPengeluaran" :key="p.id" class="hover:bg-slate-50 transition text-sm text-slate-700">
                                         <td class="p-4">{{ formatTanggal(p.tanggal).split(' ')[0] }}</td>
                                         <td class="p-4 font-medium">{{ p.keterangan }}</td>
+                                        <td class="p-4 text-center">
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold" :class="(p.metode || 'Tunai') === 'Tunai' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'">
+                                                {{ p.metode || 'Tunai' }}
+                                            </span>
+                                        </td>
                                         <td class="p-4 font-bold text-rose-600 text-right">Rp {{ p.nominal.toLocaleString('id-ID') }}</td>
                                         <td class="p-4 flex justify-center">
                                             <button @click="hapusPengeluaran(p.id)" class="text-rose-400 hover:text-rose-600 transition" title="Hapus"><i class="fas fa-times-circle text-lg"></i></button>
@@ -587,6 +627,137 @@
 
             </div>
         </main>
+
+        <!-- ========================================== -->
+        <!-- MODAL BUAT LAPORAN HARIAN & MODAL AWAL KASIR -->
+        <!-- ========================================== -->
+        <div v-if="showModalLaporanHarian" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print overflow-y-auto">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 transform transition-all my-auto">
+                <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-2.5">
+                        <i class="fas fa-file-contract text-xl"></i>
+                        <h3 class="font-bold text-lg">Buat Laporan Harian & Modal Kasir</h3>
+                    </div>
+                    <button @click="showModalLaporanHarian = false" class="text-indigo-200 hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center bg-indigo-700/50">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+                    <!-- 1. Pilih Tanggal -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">1. Pilih Tanggal Laporan</label>
+                        <div class="relative">
+                            <i class="fas fa-calendar-day absolute left-4 top-3.5 text-indigo-500"></i>
+                            <input type="date" v-model="tanggalLaporanHarian" @change="muatModalAwalTanggal" class="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white cursor-pointer text-sm">
+                        </div>
+                    </div>
+
+                    <!-- 2. Input Modal Awal (Cash Kembalian & QRIS) -->
+                    <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-4 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center">
+                                <i class="fas fa-coins text-amber-500 mr-1.5"></i> 2. Modal Awal Hari Itu (Uang Kembalian)
+                            </label>
+                            <!-- Tombol Pintar: Ambil dari Sisa Cash Hari Sebelumnya -->
+                            <button v-if="sisaCashHariSebelumnya > 0" type="button" @click="pakaiSisaCashKemarin" class="text-[11px] bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Gunakan total sisa cash dari hari sebelumnya">
+                                <i class="fas fa-redo-alt text-[10px]"></i>
+                                <span>Pakai Sisa Kemarin (Rp {{ sisaCashHariSebelumnya.toLocaleString('id-ID') }})</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-2">
+                                <span class="text-[11px] font-semibold text-slate-600 block mb-1">Modal Awal Cash (Uang di Laci):</span>
+                                <div class="flex space-x-2">
+                                    <div class="relative flex-1">
+                                        <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">Rp</span>
+                                        <input v-model.number="inputModalAwalCash" type="number" min="0" placeholder="0" class="w-full pl-9 pr-3 py-2 bg-white border border-amber-300 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                                    </div>
+                                    <button type="button" @click="simpanModalAwalHarian(true)" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition shadow-sm shrink-0">
+                                        <i class="fas fa-save mr-1"></i>Simpan
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-[11px] font-semibold text-slate-600 block mb-1">Modal Awal QRIS:</span>
+                                <div class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-500 text-sm flex justify-between items-center">
+                                    <span>Rp 0</span>
+                                    <span class="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">Tetap</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-amber-700"><i class="fas fa-info-circle mr-1"></i>Uang modal awal cash akan ditambahkan ke perhitungan total uang fisik di laci untuk dibawa ke hari berikutnya.</p>
+                    </div>
+
+                    <!-- 3. Pratinjau Rekapitulasi Langsung -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">3. Rekapitulasi ({{ formatTanggalIndo(tanggalLaporanHarian) }})</span>
+                            <span class="text-xs font-bold bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">{{ rekapHarianData.transaksi.length }} Transaksi</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <!-- Rincian Cash -->
+                            <div class="bg-white p-3.5 rounded-lg border border-blue-200 shadow-sm">
+                                <p class="font-bold text-blue-700 mb-2 flex items-center border-b border-slate-100 pb-1.5"><i class="fas fa-money-bill-wave mr-1.5"></i> Rincian Kas Tunai (Cash)</p>
+                                <div class="space-y-1">
+                                    <div class="flex justify-between text-slate-600"><span>Modal Awal (Kembali):</span><span class="font-bold text-amber-600">Rp {{ rekapHarianData.modalAwalCash.toLocaleString('id-ID') }}</span></div>
+                                    <div class="flex justify-between text-slate-600"><span>Cash Masuk (Penjualan):</span><span class="font-semibold text-emerald-600">+Rp {{ rekapHarianData.cashMasuk.toLocaleString('id-ID') }}</span></div>
+                                    <div class="flex justify-between text-slate-600"><span>Cash Keluar (Biaya/Stok):</span><span class="font-semibold text-rose-600">-Rp {{ rekapHarianData.cashKeluar.toLocaleString('id-ID') }}</span></div>
+                                    <div class="flex justify-between text-slate-500 pt-1 border-t border-dashed border-slate-200"><span>Sisa Penjualan Cash:</span><span class="font-semibold">Rp {{ rekapHarianData.sisaCash.toLocaleString('id-ID') }}</span></div>
+                                </div>
+                                <div class="mt-2 pt-2 border-t border-blue-100 bg-blue-50/60 -mx-3.5 -mb-3.5 p-3 rounded-b-lg flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-blue-900 block">Total Cash di Laci</span>
+                                        <span class="text-[10px] text-blue-600">Untuk Hari Berikutnya</span>
+                                    </div>
+                                    <span class="text-sm font-black text-blue-800">Rp {{ rekapHarianData.totalCashUntukBesok.toLocaleString('id-ID') }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Rincian QRIS -->
+                            <div class="bg-white p-3.5 rounded-lg border border-purple-200 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <p class="font-bold text-purple-700 mb-2 flex items-center border-b border-slate-100 pb-1.5"><i class="fas fa-qrcode mr-1.5"></i> Rincian Saldo QRIS</p>
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between text-slate-600"><span>Modal Awal QRIS:</span><span class="font-bold text-slate-400">Rp 0</span></div>
+                                        <div class="flex justify-between text-slate-600"><span>QRIS Masuk (Penjualan):</span><span class="font-semibold text-emerald-600">+Rp {{ rekapHarianData.qrisMasuk.toLocaleString('id-ID') }}</span></div>
+                                        <div class="flex justify-between text-slate-600"><span>QRIS Keluar (Biaya/Stok):</span><span class="font-semibold text-rose-600">-Rp {{ rekapHarianData.qrisKeluar.toLocaleString('id-ID') }}</span></div>
+                                        <div class="flex justify-between text-slate-500 pt-1 border-t border-dashed border-slate-200"><span>Sisa Saldo QRIS:</span><span class="font-semibold">Rp {{ rekapHarianData.sisaQris.toLocaleString('id-ID') }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 pt-2 border-t border-purple-100 bg-purple-50/60 -mx-3.5 -mb-3.5 p-3 rounded-b-lg flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-purple-900 block">Total Saldo QRIS</span>
+                                        <span class="text-[10px] text-purple-600">Masuk Rekening Koperasi</span>
+                                    </div>
+                                    <span class="text-sm font-black text-purple-800">Rp {{ rekapHarianData.sisaQris.toLocaleString('id-ID') }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex justify-between items-center text-xs mt-2">
+                            <div>
+                                <p class="text-emerald-900 font-bold">Total Kas Keseluruhan (Cash Laci + QRIS)</p>
+                                <p class="text-[11px] text-emerald-700">Modal Awal Rp {{ rekapHarianData.modalAwalCash.toLocaleString('id-ID') }} + Masuk Rp {{ rekapHarianData.totalPemasukan.toLocaleString('id-ID') }} - Keluar Rp {{ rekapHarianData.totalPengeluaran.toLocaleString('id-ID') }}</p>
+                            </div>
+                            <span class="text-base font-black text-emerald-800">Rp {{ rekapHarianData.totalKeseluruhanAkhir.toLocaleString('id-ID') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3 pt-1">
+                        <button type="button" @click="showModalLaporanHarian = false" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition text-sm">
+                            Tutup
+                        </button>
+                        <button type="button" @click="cetakLaporanHarianPDF" class="w-2/3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2 text-sm">
+                            <i class="fas fa-file-download text-base"></i>
+                            <span>Buat Laporan (PDF)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ========================================== -->
         <!-- MODAL SCANNER KAMERA HP -->
@@ -736,7 +907,7 @@
                 const strukAktif = ref(null);
                 
                 const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' });
-                const formBarangMasuk = ref({ idProduk: '', jumlah: '' });
+                const formBarangMasuk = ref({ idProduk: '', jumlah: '', metode: 'Tunai' });
                 
                 const editMode = ref(false);
                 const editId = ref(null);
@@ -746,7 +917,13 @@
                 const filterTanggal = ref('');
 
                 const daftarPengeluaran = ref([]);
-                const formPengeluaran = ref({ keterangan: '', nominal: '' });
+                const formPengeluaran = ref({ keterangan: '', nominal: '', metode: 'Tunai' });
+
+                // State Modal Awal Harian & Laporan Harian
+                const daftarModalHarian = ref({});
+                const showModalLaporanHarian = ref(false);
+                const tanggalLaporanHarian = ref('');
+                const inputModalAwalCash = ref(0);
 
                 const qzConnected = ref(false);
                 const daftarPrinter = ref([]);
@@ -756,6 +933,20 @@
                 const showScanner = ref(false);
                 const scanTarget = ref('pos'); // 'pos', 'master', atau 'barang_masuk'
                 let html5QrCode = null;
+
+                // Helper konversi tanggal ke YYYY-MM-DD lokal
+                const getLocalDateString = (isoString) => {
+                    const d = isoString ? new Date(isoString) : new Date();
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                };
+
+                const formatTanggalIndo = (yyyy_mm_dd) => {
+                    if (!yyyy_mm_dd) return '-';
+                    const parts = yyyy_mm_dd.split('-');
+                    if (parts.length !== 3) return yyyy_mm_dd;
+                    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                };
 
                 // Fungsi Suara Beep saat sukses scan via kamera HP
                 const playBeep = () => {
@@ -870,6 +1061,19 @@
                         daftarPengeluaran.value = tempPeng;
                     });
 
+                    // Listener untuk Modal Awal Harian (Uang Kembalian di Laci)
+                    onSnapshot(collection(db, "modal_harian"), (snapshot) => {
+                        let tempModal = {};
+                        snapshot.forEach(d => {
+                            tempModal[d.id] = d.data();
+                        });
+                        daftarModalHarian.value = tempModal;
+                        if (tanggalLaporanHarian.value && tempModal[tanggalLaporanHarian.value]) {
+                            inputModalAwalCash.value = tempModal[tanggalLaporanHarian.value].modalCash || 0;
+                        }
+                    });
+
+                    tanggalLaporanHarian.value = getLocalDateString();
                     initQZ();
                 });
 
@@ -960,6 +1164,336 @@
                     doc.save("Kumpulan_Struk_Transaksi.pdf");
                 };
 
+                // --- DATA & FUNGSI MODAL AWAL & LAPORAN HARIAN (A4 REKAP) ---
+                const modalCashHariIni = computed(() => {
+                    const todayStr = getLocalDateString();
+                    return daftarModalHarian.value[todayStr]?.modalCash || 0;
+                });
+
+                const muatModalAwalTanggal = () => {
+                    const tgl = tanggalLaporanHarian.value;
+                    inputModalAwalCash.value = daftarModalHarian.value[tgl]?.modalCash || 0;
+                };
+
+                const bukaModalLaporanHarian = () => {
+                    tanggalLaporanHarian.value = filterTanggal.value || getLocalDateString();
+                    muatModalAwalTanggal();
+                    showModalLaporanHarian.value = true;
+                };
+
+                const bukaModalInputSaldoAwalHariIni = () => {
+                    tanggalLaporanHarian.value = getLocalDateString();
+                    muatModalAwalTanggal();
+                    showModalLaporanHarian.value = true;
+                };
+
+                // Hitung sisa cash dari hari sebelumnya (H-1) untuk fitur 1-klik "Pakai Sisa Kemarin"
+                const sisaCashHariSebelumnya = computed(() => {
+                    const tgl = tanggalLaporanHarian.value;
+                    if (!tgl) return 0;
+                    const parts = tgl.split('-');
+                    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                    d.setDate(d.getDate() - 1); // Mundur 1 hari
+                    const tglKemarin = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+                    const modalKemarin = daftarModalHarian.value[tglKemarin]?.modalCash || 0;
+                    const cashMasukKemarin = daftarTransaksi.value
+                        .filter(t => getLocalDateString(t.tanggal) === tglKemarin && t.metodeBayar === 'Tunai')
+                        .reduce((s, t) => s + (t.total || 0), 0);
+                    const cashKeluarKemarin = daftarPengeluaran.value
+                        .filter(p => getLocalDateString(p.tanggal) === tglKemarin && (p.metode || 'Tunai') === 'Tunai')
+                        .reduce((s, p) => s + (p.nominal || 0), 0);
+
+                    const totalKemarin = modalKemarin + cashMasukKemarin - cashKeluarKemarin;
+                    return totalKemarin > 0 ? totalKemarin : 0;
+                });
+
+                const pakaiSisaCashKemarin = async () => {
+                    inputModalAwalCash.value = sisaCashHariSebelumnya.value;
+                    await simpanModalAwalHarian(false);
+                };
+
+                const simpanModalAwalHarian = async (tampilkanNotif = true) => {
+                    const tgl = tanggalLaporanHarian.value;
+                    if (!tgl) return;
+                    const nominalCash = Number(inputModalAwalCash.value) || 0;
+                    await setDoc(doc(db, "modal_harian", tgl), {
+                        tanggal: tgl,
+                        modalCash: nominalCash,
+                        modalQris: 0,
+                        diupdateOleh: currentUser.value || 'admin',
+                        updatedAt: new Date().toISOString()
+                    });
+                    if (tampilkanNotif) {
+                        alert(`Modal awal Cash untuk tanggal ${formatTanggalIndo(tgl)} berhasil disimpan sebesar Rp ${nominalCash.toLocaleString('id-ID')}!`);
+                    }
+                };
+
+                const rekapHarianData = computed(() => {
+                    const tgl = tanggalLaporanHarian.value;
+                    const modalAwalCash = Number(inputModalAwalCash.value) || 0;
+                    const modalAwalQris = 0; // QRIS selalu mulai dari 0 setiap hari
+
+                    if (!tgl) {
+                        return {
+                            transaksi: [], pengeluaran: [],
+                            modalAwalCash: 0, modalAwalQris: 0,
+                            cashMasuk: 0, qrisMasuk: 0, totalPemasukan: 0,
+                            cashKeluar: 0, qrisKeluar: 0, totalPengeluaran: 0,
+                            sisaCash: 0, sisaQris: 0, sisaTotal: 0,
+                            totalCashUntukBesok: 0, totalKeseluruhanAkhir: 0
+                        };
+                    }
+
+                    // Urutkan transaksi dari pagi ke malam
+                    const trxHariIni = daftarTransaksi.value
+                        .filter(t => getLocalDateString(t.tanggal) === tgl)
+                        .slice()
+                        .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+
+                    const pengHariIni = daftarPengeluaran.value
+                        .filter(p => getLocalDateString(p.tanggal) === tgl)
+                        .slice()
+                        .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+
+                    const cashMasuk = trxHariIni.filter(t => t.metodeBayar === 'Tunai').reduce((s, t) => s + (t.total || 0), 0);
+                    const qrisMasuk = trxHariIni.filter(t => t.metodeBayar === 'QRIS').reduce((s, t) => s + (t.total || 0), 0);
+                    const totalPemasukan = cashMasuk + qrisMasuk;
+
+                    const cashKeluar = pengHariIni.filter(p => (p.metode || 'Tunai') === 'Tunai').reduce((s, p) => s + (p.nominal || 0), 0);
+                    const qrisKeluar = pengHariIni.filter(p => p.metode === 'QRIS').reduce((s, p) => s + (p.nominal || 0), 0);
+                    const totalPengeluaran = cashKeluar + qrisKeluar;
+
+                    const sisaCash = cashMasuk - cashKeluar;
+                    const sisaQris = qrisMasuk - qrisKeluar;
+                    const sisaTotal = totalPemasukan - totalPengeluaran;
+
+                    // Total uang tunai di laci pada akhir hari (Modal Awal + Cash Masuk - Cash Keluar)
+                    const totalCashUntukBesok = modalAwalCash + sisaCash;
+                    const totalKeseluruhanAkhir = totalCashUntukBesok + sisaQris;
+
+                    return {
+                        transaksi: trxHariIni,
+                        pengeluaran: pengHariIni,
+                        modalAwalCash,
+                        modalAwalQris,
+                        cashMasuk,
+                        qrisMasuk,
+                        totalPemasukan,
+                        cashKeluar,
+                        qrisKeluar,
+                        totalPengeluaran,
+                        sisaCash,
+                        sisaQris,
+                        sisaTotal,
+                        totalCashUntukBesok,
+                        totalKeseluruhanAkhir
+                    };
+                });
+
+                const cetakLaporanHarianPDF = async () => {
+                    if (!tanggalLaporanHarian.value) return alert("Pilih tanggal terlebih dahulu!");
+                    
+                    // Pastikan modal awal yang diketik otomatis tersimpan ke Firebase
+                    await simpanModalAwalHarian(false);
+
+                    const rekap = rekapHarianData.value;
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                    const formatRp = (angka) => {
+                        const prefix = angka < 0 ? '-Rp ' : 'Rp ';
+                        return prefix + Math.abs(angka).toLocaleString('id-ID');
+                    };
+
+                    // 1. HEADER LAPORAN
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(16);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text("KOPMA UNIVERSITAS NEGERI MALANG", 105, 16, { align: "center" });
+
+                    doc.setFontSize(11);
+                    doc.setTextColor(71, 85, 105);
+                    doc.text("LAPORAN HARIAN TRANSAKSI, MODAL KASIR & ARUS KAS", 105, 22, { align: "center" });
+
+                    doc.setLineWidth(0.5);
+                    doc.setDrawColor(203, 213, 225);
+                    doc.line(14, 26, 196, 26);
+
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(9);
+                    doc.setTextColor(51, 65, 85);
+                    doc.text(`Tanggal Laporan : ${formatTanggalIndo(tanggalLaporanHarian.value)}`, 14, 32);
+                    doc.text(`Dicetak Oleh : ${(currentUser.value || 'Admin').toUpperCase()} (${new Date().toLocaleString('id-ID')})`, 196, 32, { align: "right" });
+
+                    // Info Ringkas Modal Awal di Atas
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`Modal Awal Laci (Cash Kembalian): ${formatRp(rekap.modalAwalCash)}   |   Modal Awal QRIS: Rp 0`, 14, 37);
+
+                    let currentY = 43;
+
+                    // 2. TABEL DAFTAR TRANSAKSI PENJUALAN (PEMASUKAN)
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(`A. RINCIAN TRANSAKSI PENJUALAN (${rekap.transaksi.length} Nota)`, 14, currentY);
+                    currentY += 2;
+
+                    const bodyTransaksi = rekap.transaksi.length > 0
+                        ? rekap.transaksi.map((t, idx) => {
+                            const jam = new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                            const rincianItem = t.item.map(i => `${i.nama} (x${i.qty})`).join(', ');
+                            return [
+                                t.nomorAntrian || (idx + 1),
+                                jam,
+                                t.kasir,
+                                rincianItem,
+                                t.metodeBayar,
+                                formatRp(t.total)
+                            ];
+                        })
+                        : [['-', '-', '-', 'Tidak ada transaksi penjualan pada tanggal ini', '-', 'Rp 0']];
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [['No.', 'Jam', 'Kasir', 'Rincian Barang', 'Metode', 'Total']],
+                        body: bodyTransaksi,
+                        theme: 'grid',
+                        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+                        bodyStyles: { fontSize: 8, textColor: [51, 65, 85] },
+                        columnStyles: {
+                            0: { cellWidth: 12, halign: 'center' },
+                            1: { cellWidth: 16, halign: 'center' },
+                            2: { cellWidth: 22 },
+                            3: { cellWidth: 'auto' },
+                            4: { cellWidth: 18, halign: 'center' },
+                            5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }
+                        },
+                        margin: { left: 14, right: 14 }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 8;
+
+                    // 3. TABEL DAFTAR PENGELUARAN
+                    if (currentY > 250) { doc.addPage(); currentY = 20; }
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(`B. RINCIAN PENGELUARAN HARIAN (${rekap.pengeluaran.length} Catatan)`, 14, currentY);
+                    currentY += 2;
+
+                    const bodyPengeluaran = rekap.pengeluaran.length > 0
+                        ? rekap.pengeluaran.map((p, idx) => {
+                            const jam = new Date(p.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                            return [
+                                idx + 1,
+                                jam,
+                                p.keterangan,
+                                p.metode || 'Tunai',
+                                formatRp(p.nominal)
+                            ];
+                        })
+                        : [['-', '-', 'Tidak ada pengeluaran pada tanggal ini', '-', 'Rp 0']];
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [['No.', 'Jam', 'Keterangan Pengeluaran / Stok Masuk', 'Sumber Dana', 'Nominal']],
+                        body: bodyPengeluaran,
+                        theme: 'grid',
+                        headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+                        bodyStyles: { fontSize: 8, textColor: [51, 65, 85] },
+                        columnStyles: {
+                            0: { cellWidth: 12, halign: 'center' },
+                            1: { cellWidth: 18, halign: 'center' },
+                            2: { cellWidth: 'auto' },
+                            3: { cellWidth: 25, halign: 'center' },
+                            4: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+                        },
+                        margin: { left: 14, right: 14 }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 10;
+
+                    // 4. REKAPITULASI KEUANGAN & SALDO HARI BERIKUTNYA PALING BAWAH
+                    if (currentY > 205) { doc.addPage(); currentY = 20; }
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10.5);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text("C. REKAPITULASI MODAL AWAL, ARUS KAS & SALDO HARI BERIKUTNYA", 14, currentY);
+                    currentY += 2;
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [['Metode Kas', 'Modal Awal (Pagi)', 'Uang Masuk (+)', 'Uang Keluar (-)', 'Sisa Hari Ini', 'Total Akhir (Untuk Besok)']],
+                        body: [
+                            [
+                                'Kas Tunai (Cash)',
+                                formatRp(rekap.modalAwalCash),
+                                formatRp(rekap.cashMasuk),
+                                formatRp(rekap.cashKeluar),
+                                formatRp(rekap.sisaCash),
+                                formatRp(rekap.totalCashUntukBesok)
+                            ],
+                            [
+                                'Saldo Non-Tunai (QRIS)',
+                                'Rp 0',
+                                formatRp(rekap.qrisMasuk),
+                                formatRp(rekap.qrisKeluar),
+                                formatRp(rekap.sisaQris),
+                                formatRp(rekap.sisaQris)
+                            ],
+                            [
+                                'TOTAL GABUNGAN',
+                                formatRp(rekap.modalAwalCash),
+                                formatRp(rekap.totalPemasukan),
+                                formatRp(rekap.totalPengeluaran),
+                                formatRp(rekap.sisaTotal),
+                                formatRp(rekap.totalKeseluruhanAkhir)
+                            ]
+                        ],
+                        theme: 'grid',
+                        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                        bodyStyles: { fontSize: 8.5, textColor: [30, 41, 59] },
+                        columnStyles: {
+                            0: { fontStyle: 'bold', cellWidth: 36 },
+                            1: { halign: 'right', textColor: [180, 83, 9] },
+                            2: { halign: 'right', textColor: [5, 150, 105] },
+                            3: { halign: 'right', textColor: [225, 29, 72] },
+                            4: { halign: 'right' },
+                            5: { halign: 'right', fontStyle: 'bold', textColor: [30, 64, 175] }
+                        },
+                        didParseCell: function (data) {
+                            if (data.section === 'body' && data.row.index === 2) {
+                                data.cell.styles.fillColor = [241, 245, 249];
+                                data.cell.styles.fontStyle = 'bold';
+                                data.cell.styles.fontSize = 9;
+                            }
+                        },
+                        margin: { left: 14, right: 14 }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 6;
+
+                    // Kotak Catatan Cash Untuk Hari Berikutnya
+                    if (currentY > 265) { doc.addPage(); currentY = 20; }
+                    doc.setFillColor(239, 246, 255);
+                    doc.setDrawColor(147, 197, 253);
+                    doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD');
+
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(9);
+                    doc.setTextColor(30, 58, 138);
+                    doc.text(`TOTAL UANG TUNAI (CASH) DI LACI UNTUK HARI BERIKUTNYA: ${formatRp(rekap.totalCashUntukBesok)}`, 18, currentY + 7);
+                    
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(8);
+                    doc.setTextColor(51, 65, 85);
+                    doc.text(`Rincian: Modal Kembalian (${formatRp(rekap.modalAwalCash)}) + Cash Masuk (${formatRp(rekap.cashMasuk)}) - Cash Keluar (${formatRp(rekap.cashKeluar)})`, 18, currentY + 13);
+
+                    doc.save(`Laporan_Harian_Kopma_${tanggalLaporanHarian.value}.pdf`);
+                    showModalLaporanHarian.value = false;
+                };
+
                 // Filter untuk halaman Transaksi Kasir
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
@@ -1021,10 +1555,7 @@
                     let result = daftarTransaksi.value;
                     if (filterTransaksi.value !== 'Semua') result = result.filter(t => t.metodeBayar === filterTransaksi.value);
                     if (filterTanggal.value) {
-                        result = result.filter(t => {
-                            const dateObj = new Date(t.tanggal);
-                            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === filterTanggal.value;
-                        });
+                        result = result.filter(t => getLocalDateString(t.tanggal) === filterTanggal.value);
                     }
                     return result;
                 });
@@ -1086,10 +1617,14 @@
                 const tambahPengeluaran = async () => {
                     if(!formPengeluaran.value.keterangan || formPengeluaran.value.nominal <= 0) return;
                     await addDoc(collection(db, "pengeluaran"), {
-                        keterangan: formPengeluaran.value.keterangan, nominal: formPengeluaran.value.nominal,
-                        tanggal: new Date().toISOString(), kasir: currentUser.value
+                        keterangan: formPengeluaran.value.keterangan,
+                        nominal: formPengeluaran.value.nominal,
+                        metode: formPengeluaran.value.metode || 'Tunai',
+                        tanggal: new Date().toISOString(),
+                        kasir: currentUser.value
                     });
-                    formPengeluaran.value = { keterangan: '', nominal: '' }; alert("Pengeluaran berhasil dicatat!");
+                    formPengeluaran.value = { keterangan: '', nominal: '', metode: 'Tunai' };
+                    alert("Pengeluaran berhasil dicatat!");
                 };
                 
                 const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
@@ -1122,6 +1657,7 @@
 
                 const prosesBarangMasuk = async () => {
                     const prodId = formBarangMasuk.value.idProduk; const jumlah = formBarangMasuk.value.jumlah;
+                    const metodeDana = formBarangMasuk.value.metode || 'Tunai';
                     if (!prodId || jumlah <= 0) return alert("Pilih produk terlebih dahulu dan masukkan jumlah stok yang valid!");
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
@@ -1131,11 +1667,17 @@
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
                                 const pRef = doc(collection(db, "pengeluaran"));
-                                batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
+                                batch.set(pRef, {
+                                    keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`,
+                                    nominal: totalBiayaKulakan,
+                                    metode: metodeDana,
+                                    tanggal: new Date().toISOString(),
+                                    kasir: currentUser.value
+                                });
                             }
                             await batch.commit();
                             alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
-                            formBarangMasuk.value = { idProduk: '', jumlah: '' };
+                            formBarangMasuk.value = { idProduk: '', jumlah: '', metode: 'Tunai' };
                             searchBarangMasuk.value = '';
                             page.value = 'produk';
                         } catch (error) { alert("Terjadi kesalahan: " + error.message); }
@@ -1275,13 +1817,9 @@
 
                     // Hitung nomor urut (antrian) hari ini
                     const tglSekarang = new Date();
-                    const stringHariIni = `${tglSekarang.getFullYear()}-${String(tglSekarang.getMonth() + 1).padStart(2, '0')}-${String(tglSekarang.getDate()).padStart(2, '0')}`;
+                    const stringHariIni = getLocalDateString(tglSekarang.toISOString());
                     
-                    const hitungTrxHariIni = daftarTransaksi.value.filter(t => {
-                        const dateObj = new Date(t.tanggal);
-                        return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
-                    }).length;
-                    
+                    const hitungTrxHariIni = daftarTransaksi.value.filter(t => getLocalDateString(t.tanggal) === stringHariIni).length;
                     const nomorAntrian = hitungTrxHariIni + 1;
 
                     const batch = writeBatch(db);
@@ -1344,10 +1882,12 @@
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
-                    setUang, bukaFormDaftar, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
+                    setUang, bukaFormDaftar, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, formatTanggalIndo, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
                     qzConnected, daftarPrinter, selectedPrinter, getBarcodeBase64,
                     editMode, batalEdit, siapkanEdit, simpanProduk, downloadStrukPDF, downloadSemuaStrukPDF,
-                    showScanner, bukaKamera, tutupKamera
+                    showScanner, bukaKamera, tutupKamera,
+                    showModalLaporanHarian, tanggalLaporanHarian, inputModalAwalCash, modalCashHariIni, sisaCashHariSebelumnya,
+                    muatModalAwalTanggal, bukaModalLaporanHarian, bukaModalInputSaldoAwalHariIni, pakaiSisaCashKemarin, simpanModalAwalHarian, rekapHarianData, cetakLaporanHarianPDF
                 };
             }
         }).mount('#app');
