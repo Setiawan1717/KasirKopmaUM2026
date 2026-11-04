@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js"></script> <!-- QZ Tray Printer -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script> <!-- Barcode Generator -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- Ekspor PDF -->
+    <script src="https://unpkg.com/html5-qrcode"></script> <!-- Kamera Barcode Scanner HP -->
     
     <style>
         [v-cloak] { display: none; }
@@ -94,12 +95,28 @@
         <!-- ========================================== -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden no-print bg-slate-50 relative">
             
-            <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 flex-shrink-0 border-b border-slate-200">
-                <div class="relative w-full max-w-lg">
-                    <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
-                    <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+            <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 flex-shrink-0 border-b border-slate-200 gap-4 min-h-[72px]">
+                <!-- Kolom Search & Scan HP HANYA MUNCUL DI HALAMAN TRANSAKSI (POS) -->
+                <div v-if="page === 'pos'" class="flex items-center w-full max-w-lg gap-2">
+                    <div class="relative flex-1">
+                        <i class="fas fa-barcode absolute left-3 top-3 text-slate-400"></i>
+                        <input v-model="search" @keyup.enter="handleBarcodeScan" type="text" placeholder="Scan Barcode atau Cari nama produk..." class="w-full bg-slate-100 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700">
+                    </div>
+                    <!-- Tombol Scan Kamera HP -->
+                    <button @click="bukaKamera('pos')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition flex items-center space-x-2 font-bold shrink-0" title="Scan Barcode Pakai Kamera HP">
+                        <i class="fas fa-camera"></i>
+                        <span class="hidden sm:inline text-sm">Scan HP</span>
+                    </button>
                 </div>
-                <div class="text-sm font-semibold text-slate-500 flex items-center space-x-2 hidden sm:flex">
+                <!-- Judul Halaman selain Transaksi Kasir -->
+                <div v-else class="flex items-center space-x-2 text-slate-700 font-bold text-lg">
+                    <span v-if="page === 'produk'"><i class="fas fa-box text-blue-600 mr-2"></i>Master Produk</span>
+                    <span v-else-if="page === 'barang_masuk'"><i class="fas fa-truck-loading text-emerald-600 mr-2"></i>Barang Masuk</span>
+                    <span v-else-if="page === 'riwayat'"><i class="fas fa-history text-indigo-600 mr-2"></i>Riwayat Transaksi</span>
+                    <span v-else-if="page === 'laporan'"><i class="fas fa-chart-pie text-emerald-600 mr-2"></i>Laporan Keuangan</span>
+                </div>
+
+                <div class="text-sm font-semibold text-slate-500 flex items-center space-x-2 shrink-0 ml-auto">
                     <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{{ role }}</span>
                     <span>KOPMA UM</span>
                 </div>
@@ -232,9 +249,15 @@
                                     </select>
                                 </div>
 
-                                <button @click="simpanTransaksi" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-lg">
-                                    <i class="fas fa-print"></i><span>Simpan & Cetak Struk</span>
-                                </button>
+                                <!-- TOMBOL AKSI SIMPAN (DENGAN ATAU TANPA CETAK STRUK) -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <button @click="simpanTransaksi(false)" :disabled="cart.length === 0" class="w-full bg-blue-600 text-white font-bold py-3.5 px-3 rounded-xl hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-sm">
+                                        <i class="fas fa-check-circle"></i><span>Simpan Saja</span>
+                                    </button>
+                                    <button @click="simpanTransaksi(true)" :disabled="cart.length === 0" class="w-full bg-emerald-600 text-white font-bold py-3.5 px-3 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md flex justify-center items-center space-x-2 text-sm">
+                                        <i class="fas fa-print"></i><span>Simpan & Cetak</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -242,8 +265,17 @@
 
                 <!-- 2. HALAMAN MASTER PRODUK -->
                 <div v-if="page === 'produk' && role === 'admin'" class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
-                    <div class="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+                    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
                         <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-boxes text-blue-500 mr-2"></i> Manajemen Data Produk</h2>
+                        
+                        <!-- Pencarian Khusus Halaman Master Produk -->
+                        <div class="relative w-full sm:w-80">
+                            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+                            <input v-model="searchMaster" type="text" placeholder="Cari nama, kategori, atau barcode..." class="w-full bg-slate-100 pl-10 pr-8 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium text-slate-700 border border-slate-200">
+                            <button v-if="searchMaster" @click="searchMaster = ''" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="p-6 flex-1 overflow-y-auto">
                         <form @submit.prevent="simpanProduk" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8 bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-inner">
@@ -251,7 +283,13 @@
                                 <p class="text-sm font-bold text-blue-800"><i :class="editMode ? 'fas fa-edit' : 'fas fa-plus-circle'" class="mr-1"></i> {{ editMode ? 'Edit Data Produk' : 'Tambah Produk Baru' }}</p>
                                 <button v-if="editMode" @click="batalEdit" type="button" class="text-xs text-rose-500 hover:text-rose-700 font-bold transition flex items-center"><i class="fas fa-times-circle mr-1"></i> Batal Edit</button>
                             </div>
-                            <input v-model="formProduk.barcode" placeholder="Kode Barcode (Opsional)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <!-- Input Barcode + Tombol Kamera -->
+                            <div class="flex space-x-1">
+                                <input v-model="formProduk.barcode" placeholder="Kode Barcode" class="w-full p-3 bg-white border border-slate-200 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                                <button type="button" @click="bukaKamera('master')" class="bg-blue-600 text-white px-3 rounded-r-lg hover:bg-blue-700 transition flex items-center justify-center shrink-0" title="Scan Barcode dengan Kamera">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
                             <input v-model="formProduk.nama" required placeholder="Nama Produk" class="p-3 bg-white border border-slate-200 rounded-lg md:col-span-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model="formProduk.kategori" required placeholder="Kategori" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.hargaModal" required type="number" placeholder="Harga Modal (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -270,7 +308,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
+                                    <tr v-for="p in filteredMasterProducts" :key="p.id" class="hover:bg-slate-50 text-sm text-slate-700 transition">
                                         <td class="p-4 font-mono text-xs text-slate-500">{{ p.barcode || '-' }}</td>
                                         <td class="p-4 font-bold text-slate-800">{{ p.nama }}</td>
                                         <td class="p-4"><span class="bg-slate-200 text-slate-600 px-3 py-1 rounded-md text-xs font-medium">{{ p.kategori }}</span></td>
@@ -284,8 +322,8 @@
                                     </tr>
                                 </tbody>
                             </table>
-                            <div v-if="products.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
-                                <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Belum ada data produk tersimpan.</p>
+                            <div v-if="filteredMasterProducts.length === 0" class="text-center p-12 text-slate-400 flex flex-col items-center">
+                                <i class="fas fa-folder-open text-5xl mb-4 opacity-20"></i><p>Produk tidak ditemukan / Belum ada data produk.</p>
                             </div>
                         </div>
                     </div>
@@ -300,25 +338,78 @@
                         <div class="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-lg">
                             <form @submit.prevent="prosesBarangMasuk" class="space-y-6">
                                 <div>
-                                    <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Pilih Produk</label>
-                                    <div class="relative">
-                                        <select v-model="formBarangMasuk.idProduk" required class="w-full p-4 pl-4 pr-10 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 appearance-none font-medium text-slate-700">
-                                            <option value="" disabled>-- Pilih Produk dari Daftar --</option>
-                                            <option v-for="p in products" :key="p.id" :value="p.id">
-                                                {{ p.barcode ? '['+p.barcode+'] ' : '' }}{{ p.nama }} (Sisa Stok: {{ p.stok }})
-                                            </option>
-                                        </select>
-                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"><i class="fas fa-chevron-down"></i></div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Cari / Scan Produk</label>
+                                    
+                                    <!-- Kolom Ketik & Scan Barcode Barang Masuk -->
+                                    <div class="flex gap-2 relative">
+                                        <div class="relative flex-1">
+                                            <i class="fas fa-barcode absolute left-4 top-4 text-slate-400"></i>
+                                            <input 
+                                                v-model="searchBarangMasuk" 
+                                                @keydown.enter.prevent="handleScanBarangMasuk"
+                                                type="text" 
+                                                placeholder="Ketik nama produk atau scan barcode..." 
+                                                class="w-full pl-11 pr-8 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none font-medium text-slate-700 transition"
+                                            >
+                                            <button v-if="searchBarangMasuk" type="button" @click="searchBarangMasuk = ''" class="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600">
+                                                <i class="fas fa-times-circle"></i>
+                                            </button>
+                                        </div>
+                                        <button type="button" @click="bukaKamera('barang_masuk')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 rounded-xl font-bold transition flex items-center space-x-2 shadow-sm shrink-0" title="Scan Barcode Pakai Kamera HP">
+                                            <i class="fas fa-camera"></i>
+                                            <span class="hidden sm:inline text-sm">Scan HP</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Daftar Hasil Pencarian Otomatis (Muncul Saat Mengetik) -->
+                                    <div v-if="searchBarangMasuk.trim() !== ''" class="mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+                                        <div 
+                                            v-for="p in filteredBarangMasuk" 
+                                            :key="p.id" 
+                                            @click="pilihProdukMasuk(p)"
+                                            class="p-3 hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition"
+                                        >
+                                            <div>
+                                                <p class="font-bold text-slate-800 text-sm">{{ p.nama }}</p>
+                                                <p class="text-xs text-slate-400 font-mono">{{ p.barcode ? 'Barcode: ' + p.barcode : 'Tanpa Barcode' }} | Kategori: {{ p.kategori }}</p>
+                                            </div>
+                                            <div class="text-right shrink-0 ml-2">
+                                                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Stok: {{ p.stok }}</span>
+                                            </div>
+                                        </div>
+                                        <div v-if="filteredBarangMasuk.length === 0" class="p-4 text-center text-sm text-slate-400">
+                                            Produk tidak ditemukan.
+                                        </div>
+                                    </div>
+
+                                    <!-- Kartu Informasi Produk yang Terpilih -->
+                                    <div v-if="produkMasukTerpilih" class="mt-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center shadow-sm">
+                                        <div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">Produk Terpilih</span>
+                                            <p class="font-bold text-emerald-950 text-base mt-1">{{ produkMasukTerpilih.nama }}</p>
+                                            <p class="text-xs text-emerald-700 mt-0.5">
+                                                <span v-if="produkMasukTerpilih.barcode" class="font-mono mr-2">[{{ produkMasukTerpilih.barcode }}]</span>
+                                                Sisa Stok Saat Ini: <strong class="font-black">{{ produkMasukTerpilih.stok }}</strong> | Modal: Rp {{ (produkMasukTerpilih.hargaModal || 0).toLocaleString('id-ID') }}
+                                            </p>
+                                        </div>
+                                        <button type="button" @click="formBarangMasuk.idProduk = ''" class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-white px-3 py-1.5 rounded-lg border border-rose-200 shadow-sm transition shrink-0 ml-2">
+                                            <i class="fas fa-times mr-1"></i>Ganti
+                                        </button>
+                                    </div>
+                                    <div v-else-if="searchBarangMasuk.trim() === ''" class="mt-2 text-xs text-slate-400 flex items-center">
+                                        <i class="fas fa-lightbulb text-amber-400 mr-1.5"></i>
+                                        <span>Ketik nama barang atau scan barcode untuk memilih produk.</span>
                                     </div>
                                 </div>
+
                                 <div>
                                     <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Jumlah Tambahan Stok</label>
                                     <div class="relative">
                                         <i class="fas fa-boxes absolute left-4 top-4 text-slate-400"></i>
-                                        <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-xl text-slate-800">
+                                        <input v-model.number="formBarangMasuk.jumlah" type="number" required min="1" placeholder="Masukkan jumlah stok masuk..." class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none font-bold text-xl text-slate-800">
                                     </div>
                                 </div>
-                                <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
+                                <button type="submit" :disabled="!formBarangMasuk.idProduk || !formBarangMasuk.jumlah" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2 text-lg shadow-md mt-4">
                                     <i class="fas fa-plus-circle"></i> <span>Tambahkan Stok ke Gudang</span>
                                 </button>
                             </form>
@@ -498,6 +589,30 @@
         </main>
 
         <!-- ========================================== -->
+        <!-- MODAL SCANNER KAMERA HP -->
+        <!-- ========================================== -->
+        <div v-if="showScanner" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+                <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
+                    <h3 class="font-bold flex items-center space-x-2">
+                        <i class="fas fa-camera text-blue-400"></i>
+                        <span>Scan Barcode Produk</span>
+                    </h3>
+                    <button @click="tutupKamera" class="text-slate-400 hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center bg-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-5">
+                    <div id="reader" class="w-full rounded-xl overflow-hidden border-2 border-dashed border-slate-300 bg-slate-900 min-h-[250px]"></div>
+                    <p class="text-xs text-center text-slate-500 mt-4"><i class="fas fa-info-circle mr-1"></i> Arahkan kamera ke barcode produk. Pastikan cahaya cukup.</p>
+                    <button @click="tutupKamera" class="mt-4 w-full bg-rose-100 text-rose-700 font-bold py-2.5 rounded-xl hover:bg-rose-200 transition text-sm">
+                        Batal Scan
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
         <!-- MODAL LOGIN (OVERLAY BLUR) -->
         <!-- ========================================== -->
         <div v-if="!role" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 no-print transition-all">
@@ -574,10 +689,10 @@
 
     <!-- Script Vue.js & Firebase -->
     <script type="module">
-        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
         
-        // TAMBAHAN: Mengimpor modul Offline Persistence dari Firebase
+        // Mengimpor modul Offline Persistence dari Firebase
         import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, writeBatch, setDoc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
 
@@ -593,7 +708,7 @@
 
         const appFirebase = initializeApp(firebaseConfig);
         
-        // TAMBAHAN: MENGAKTIFKAN MODE OFFLINE FIREBASE PERMANEN
+        // MENGAKTIFKAN MODE OFFLINE FIREBASE PERMANEN
         const db = initializeFirestore(appFirebase, {
             localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
         });
@@ -611,6 +726,8 @@
                 const page = ref('pos');
                 const products = ref([]);
                 const search = ref('');
+                const searchMaster = ref(''); // State pencarian di Master Produk
+                const searchBarangMasuk = ref(''); // State pencarian/scan di Barang Masuk
                 
                 const cart = ref([]);
                 const diskon = ref(0);
@@ -634,6 +751,85 @@
                 const qzConnected = ref(false);
                 const daftarPrinter = ref([]);
                 const selectedPrinter = ref('');
+
+                // State untuk Kamera Scanner HP
+                const showScanner = ref(false);
+                const scanTarget = ref('pos'); // 'pos', 'master', atau 'barang_masuk'
+                let html5QrCode = null;
+
+                // Fungsi Suara Beep saat sukses scan via kamera HP
+                const playBeep = () => {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = "sine";
+                        osc.frequency.value = 880;
+                        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                        osc.start();
+                        osc.stop(ctx.currentTime + 0.15);
+                    } catch (e) { console.log("Audio beep tidak didukung"); }
+                };
+
+                const bukaKamera = (target = 'pos') => {
+                    scanTarget.value = target;
+                    showScanner.value = true;
+                    nextTick(() => {
+                        html5QrCode = new Html5Qrcode("reader");
+                        html5QrCode.start(
+                            { facingMode: "environment" }, // Kamera Belakang HP
+                            { fps: 10, qrbox: { width: 250, height: 150 } },
+                            (decodedText) => {
+                                playBeep();
+                                const cleanCode = decodedText.trim();
+                                if (scanTarget.value === 'pos') {
+                                    const matchedProduct = products.value.find(p => p.barcode && p.barcode.toLowerCase() === cleanCode.toLowerCase());
+                                    if (matchedProduct) {
+                                        addToCart(matchedProduct);
+                                        tutupKamera();
+                                    } else {
+                                        alert(`Produk dengan barcode [${cleanCode}] tidak ditemukan di sistem!`);
+                                        tutupKamera();
+                                    }
+                                } else if (scanTarget.value === 'master') {
+                                    formProduk.value.barcode = cleanCode;
+                                    tutupKamera();
+                                } else if (scanTarget.value === 'barang_masuk') {
+                                    const matchedProduct = products.value.find(p => p.barcode && p.barcode.toLowerCase() === cleanCode.toLowerCase());
+                                    if (matchedProduct) {
+                                        formBarangMasuk.value.idProduk = matchedProduct.id;
+                                        searchBarangMasuk.value = '';
+                                        tutupKamera();
+                                    } else {
+                                        alert(`Produk dengan barcode [${cleanCode}] belum terdaftar di Master Produk!`);
+                                        tutupKamera();
+                                    }
+                                }
+                            },
+                            (errorMessage) => {
+                                // Abaikan pesan error per-frame saat mencari fokus barcode
+                            }
+                        ).catch((err) => {
+                            alert("Gagal mengakses kamera. Pastikan Anda telah memberikan izin kamera di browser, dan membuka web melalui HTTPS atau localhost.");
+                            showScanner.value = false;
+                        });
+                    });
+                };
+
+                const tutupKamera = () => {
+                    if (html5QrCode) {
+                        html5QrCode.stop().then(() => {
+                            html5QrCode.clear();
+                            showScanner.value = false;
+                        }).catch(() => {
+                            showScanner.value = false;
+                        });
+                    } else {
+                        showScanner.value = false;
+                    }
+                };
 
                 const initQZ = () => {
                     qz.websocket.connect().then(() => {
@@ -764,11 +960,58 @@
                     doc.save("Kumpulan_Struk_Transaksi.pdf");
                 };
 
+                // Filter untuk halaman Transaksi Kasir
                 const filteredProducts = computed(() => {
                     const keyword = search.value.toLowerCase().trim();
                     if (!keyword) return products.value;
                     return products.value.filter(p => p.nama.toLowerCase().includes(keyword) || (p.barcode && p.barcode.toLowerCase().includes(keyword)));
                 });
+
+                // Filter untuk halaman Master Produk
+                const filteredMasterProducts = computed(() => {
+                    const keyword = searchMaster.value.toLowerCase().trim();
+                    if (!keyword) return products.value;
+                    return products.value.filter(p => 
+                        p.nama.toLowerCase().includes(keyword) || 
+                        (p.kategori && p.kategori.toLowerCase().includes(keyword)) ||
+                        (p.barcode && p.barcode.toLowerCase().includes(keyword))
+                    );
+                });
+
+                // Filter & Pilihan Produk untuk halaman Barang Masuk
+                const filteredBarangMasuk = computed(() => {
+                    const keyword = searchBarangMasuk.value.toLowerCase().trim();
+                    if (!keyword) return [];
+                    return products.value.filter(p => 
+                        p.nama.toLowerCase().includes(keyword) || 
+                        (p.barcode && p.barcode.toLowerCase().includes(keyword))
+                    );
+                });
+
+                const produkMasukTerpilih = computed(() => {
+                    if (!formBarangMasuk.value.idProduk) return null;
+                    return products.value.find(p => p.id === formBarangMasuk.value.idProduk) || null;
+                });
+
+                const pilihProdukMasuk = (p) => {
+                    formBarangMasuk.value.idProduk = p.id;
+                    searchBarangMasuk.value = '';
+                };
+
+                const handleScanBarangMasuk = () => {
+                    const kode = searchBarangMasuk.value.trim();
+                    if (!kode) return;
+                    // Cek apakah ada barcode yang persis sama
+                    const exactMatch = products.value.find(p => p.barcode && p.barcode.toLowerCase() === kode.toLowerCase());
+                    if (exactMatch) {
+                        pilihProdukMasuk(exactMatch);
+                    } else if (filteredBarangMasuk.value.length === 1) {
+                        // Jika hasil pencarian hanya 1 barang, langsung pilih
+                        pilihProdukMasuk(filteredBarangMasuk.value[0]);
+                    } else {
+                        alert("Produk dengan barcode/nama tersebut tidak ditemukan secara spesifik!");
+                    }
+                };
 
                 const subtotal = computed(() => cart.value.reduce((sum, item) => sum + (item.hargaJual * item.qty), 0));
                 const total = computed(() => subtotal.value - diskon.value);
@@ -780,7 +1023,7 @@
                     if (filterTanggal.value) {
                         result = result.filter(t => {
                             const dateObj = new Date(t.tanggal);
-                            return `dateObj.getFullYear()-{String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === filterTanggal.value;
+                            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === filterTanggal.value;
                         });
                     }
                     return result;
@@ -855,7 +1098,6 @@
                     editMode.value = true;
                     editId.value = p.id;
                     formProduk.value = { barcode: p.barcode || '', nama: p.nama, kategori: p.kategori, hargaModal: p.hargaModal, hargaJual: p.hargaJual, stok: p.stok };
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 };
 
                 const batalEdit = () => {
@@ -880,7 +1122,7 @@
 
                 const prosesBarangMasuk = async () => {
                     const prodId = formBarangMasuk.value.idProduk; const jumlah = formBarangMasuk.value.jumlah;
-                    if (!prodId || jumlah <= 0) return alert("Pilih produk dan masukkan jumlah yang valid!");
+                    if (!prodId || jumlah <= 0) return alert("Pilih produk terlebih dahulu dan masukkan jumlah stok yang valid!");
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
                         try {
@@ -889,11 +1131,13 @@
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
                                 const pRef = doc(collection(db, "pengeluaran"));
-                                batch.set(pRef, { keterangan: `Stok Masuk: prodAsli.nama(x{jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
+                                batch.set(pRef, { keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`, nominal: totalBiayaKulakan, tanggal: new Date().toISOString(), kasir: currentUser.value });
                             }
                             await batch.commit();
                             alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
-                            formBarangMasuk.value = { idProduk: '', jumlah: '' }; page.value = 'produk';
+                            formBarangMasuk.value = { idProduk: '', jumlah: '' };
+                            searchBarangMasuk.value = '';
+                            page.value = 'produk';
                         } catch (error) { alert("Terjadi kesalahan: " + error.message); }
                     }
                 };
@@ -1026,19 +1270,19 @@
                     });
                 };
 
-                const simpanTransaksi = async () => {
+                const simpanTransaksi = async (cetak = true) => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
 
                     // Hitung nomor urut (antrian) hari ini
                     const tglSekarang = new Date();
-                    const stringHariIni = `${tglSekarang.getFullYear()}-String(tglSekarang.getMonth()+1).padStart(2,'0')-{String(tglSekarang.getDate()).padStart(2, '0')}`;
+                    const stringHariIni = `${tglSekarang.getFullYear()}-${String(tglSekarang.getMonth() + 1).padStart(2, '0')}-${String(tglSekarang.getDate()).padStart(2, '0')}`;
                     
                     const hitungTrxHariIni = daftarTransaksi.value.filter(t => {
                         const dateObj = new Date(t.tanggal);
-                        return `dateObj.getFullYear()-{String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
+                        return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` === stringHariIni;
                     }).length;
                     
-                    const nomorAntrian = hitungTrxHariIni + 1; // Ditambah 1 untuk urutan transaksi ini
+                    const nomorAntrian = hitungTrxHariIni + 1;
 
                     const batch = writeBatch(db);
                     cart.value.forEach(item => {
@@ -1060,16 +1304,22 @@
 
                     await batch.commit();
 
-                    strukAktif.value = {
-                        tanggal: tgl, cart: [...cart.value], subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime,
-                        nomorAntrian: nomorAntrian
-                    };
+                    if (cetak) {
+                        strukAktif.value = {
+                            tanggal: tgl, cart: [...cart.value], subtotal: subtotal.value, diskon: diskon.value, total: total.value,
+                            metodeBayar: metodeBayar.value, uangDiterima: uangDiterima.value, kembalian: kembalian.value, kasir: namaKasirRealTime,
+                            nomorAntrian: nomorAntrian
+                        };
 
-                    setTimeout(() => {
-                        cetakStrukQZ(strukAktif.value);
+                        setTimeout(() => {
+                            cetakStrukQZ(strukAktif.value);
+                            cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
+                        }, 500);
+                    } else {
+                        // Jika hanya simpan tanpa cetak struk
                         cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
-                    }, 500);
+                        alert(`Transaksi berhasil disimpan! (No. Pesanan: ${nomorAntrian})`);
+                    }
                 };
 
                 const hapusTransaksi = async (transaksi) => {
@@ -1088,14 +1338,16 @@
                 };
 
                 return {
-                    isLoginMode, username, password, registerRole, role, currentUser, page, products, search, filteredProducts, 
+                    isLoginMode, username, password, registerRole, role, currentUser, page, products, search, searchMaster, searchBarangMasuk,
+                    filteredProducts, filteredMasterProducts, filteredBarangMasuk, produkMasukTerpilih, pilihProdukMasuk, handleScanBarangMasuk,
                     formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
                     cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
                     setUang, bukaFormDaftar, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
                     qzConnected, daftarPrinter, selectedPrinter, getBarcodeBase64,
-                    editMode, batalEdit, siapkanEdit, simpanProduk, downloadStrukPDF, downloadSemuaStrukPDF
+                    editMode, batalEdit, siapkanEdit, simpanProduk, downloadStrukPDF, downloadSemuaStrukPDF,
+                    showScanner, bukaKamera, tutupKamera
                 };
             }
         }).mount('#app');
