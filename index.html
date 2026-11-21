@@ -158,7 +158,7 @@
                                     <div>
                                         <p class="text-blue-600 font-bold text-lg mb-1">Rp {{ p.hargaJual.toLocaleString('id-ID') }}</p>
                                         <div class="flex justify-between items-center text-xs mt-2 pt-2 border-t border-slate-100">
-                                            <span class="text-slate-500">Stok: <span :class="p.stok < 5 ? 'text-red-500 font-bold' : ''">{{ p.stok }}</span></span>
+                                            <span class="text-slate-500">Stok: <span :class="p.stok < batasMin(p) ? 'text-red-500 font-bold' : ''">{{ p.stok }}</span></span>
                                             <i class="fas fa-cart-plus text-blue-500 text-lg"></i>
                                         </div>
                                     </div>
@@ -209,6 +209,14 @@
                                 <div class="flex justify-between items-center text-sm text-slate-600 mb-5 border-b border-dashed border-slate-200 pb-3">
                                     <span>Diskon (Rp)</span>
                                     <input v-model.number="diskon" type="number" class="w-1/3 text-right bg-slate-50 border border-slate-200 rounded-md py-1.5 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow">
+                                </div>
+
+                                <div class="mb-4">
+                                    <p class="text-xs text-slate-500 mb-2 uppercase tracking-wider font-bold">NIM Anggota <span class="normal-case font-medium text-slate-400">(opsional, untuk poin)</span></p>
+                                    <div class="relative">
+                                        <i class="fas fa-id-card absolute left-3 top-3 text-slate-400"></i>
+                                        <input v-model="nimAnggota" type="text" inputmode="numeric" placeholder="Kosongkan kalau bukan anggota" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium text-slate-700">
+                                    </div>
                                 </div>
 
                                 <div class="mb-4">
@@ -301,7 +309,8 @@
                             <input v-model="formProduk.kategori" required placeholder="Kategori" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.hargaModal" required type="number" placeholder="Harga Modal (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <input v-model.number="formProduk.hargaJual" required type="number" placeholder="Harga Jual (Rp)" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <input v-model.number="formProduk.stok" required type="number" placeholder="Stok Awal" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none md:col-span-2 lg:col-span-1">
+                            <input v-model.number="formProduk.stok" required type="number" placeholder="Stok Awal" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <input v-model.number="formProduk.batasMinimum" type="number" min="0" placeholder="Batas Minimum (5)" title="Kalau stok di bawah angka ini, produk ditandai merah dan masuk daftar perlu belanja di Kopma Hub" class="p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <button type="submit" class="text-white rounded-lg p-3 md:col-span-6 font-bold transition shadow-md flex justify-center items-center space-x-2" :class="editMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'">
                                 <i :class="editMode ? 'fas fa-save' : 'fas fa-plus'"></i> <span>{{ editMode ? 'Update Data Produk' : 'Simpan Produk' }}</span>
                             </button>
@@ -321,7 +330,7 @@
                                         <td class="p-4"><span class="bg-slate-200 text-slate-600 px-3 py-1 rounded-md text-xs font-medium">{{ p.kategori }}</span></td>
                                         <td class="p-4">Rp {{ p.hargaModal.toLocaleString('id-ID') }}</td>
                                         <td class="p-4 font-bold text-blue-600 text-base">Rp {{ p.hargaJual.toLocaleString('id-ID') }}</td>
-                                        <td class="p-4 text-center font-bold text-lg" :class="p.stok < 5 ? 'text-rose-500': 'text-slate-700'">{{ p.stok }}</td>
+                                        <td class="p-4 text-center font-bold text-lg" :class="p.stok < batasMin(p) ? 'text-rose-500': 'text-slate-700'">{{ p.stok }}</td>
                                         <td class="p-4 flex justify-center space-x-2">
                                             <button @click="siapkanEdit(p)" class="bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm" title="Edit Produk"><i class="fas fa-edit"></i></button>
                                             <button @click="hapusProduk(p.id)" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm" title="Hapus Produk"><i class="fas fa-trash-alt"></i></button>
@@ -791,7 +800,7 @@
                 <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white rounded-full w-24 h-24 flex items-center justify-center shadow-xl border-4 border-white overflow-hidden"><img src="LogoKopmaHitamPutih.png" alt="Logo Kopma" class="h-full w-full object-cover"></div>
                 <div class="text-center mt-10 mb-8">
                     <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">KASIR KOPMA UM</h1>
-                    <p class="text-sm text-slate-500 mt-2 font-medium">{{ isLoginMode ? 'Silakan login untuk mengakses sistem kasir' : 'Pendaftaran Akun Pegawai Baru' }}</p>
+                    <p class="text-sm text-slate-500 mt-2 font-medium">Silakan login untuk mengakses sistem kasir</p>
                 </div>
                 
                 <form @submit.prevent="prosesAuth" class="space-y-5">
@@ -804,25 +813,12 @@
                         <input v-model="password" type="password" required class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-base font-medium transition-shadow" placeholder="Kata Sandi">
                     </div>
                     
-                    <div v-if="!isLoginMode" class="relative mt-2">
-                        <i class="fas fa-id-badge absolute left-4 top-3.5 text-blue-500 text-lg z-10"></i>
-                        <select v-model="registerRole" class="w-full pl-12 pr-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-xl focus:outline-none text-base appearance-none relative">
-                            <option value="kasir">Akses: Kasir</option>
-                            <option value="admin">Akses: Administrator</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-blue-500"><i class="fas fa-chevron-down"></i></div>
-                    </div>
-                    
-                    <button type="submit" class="w-full text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg flex justify-center items-center space-x-3 text-lg mt-6" :class="isLoginMode ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30' : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/30'">
-                        <i :class="isLoginMode ? 'fas fa-sign-in-alt' : 'fas fa-user-plus'"></i><span>{{ isLoginMode ? 'Masuk ke Sistem' : 'Buat Akun Sekarang' }}</span>
+                    <button type="submit" class="w-full text-white font-bold py-4 px-4 rounded-xl transition-all shadow-lg flex justify-center items-center space-x-3 text-lg mt-6 bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30">
+                        <i class="fas fa-sign-in-alt"></i><span>Masuk ke Sistem</span>
                     </button>
                 </form>
                 
-                <div class="mt-8 text-center text-xs text-slate-400 border-t border-slate-100 pt-6">
-                    <button @click="bukaFormDaftar" class="hover:text-blue-600 transition inline-flex items-center space-x-1 font-medium bg-slate-50 px-4 py-2 rounded-full border border-slate-200 hover:border-blue-300">
-                        <i class="fas fa-cog"></i><span>{{ isLoginMode ? 'Manajemen Akun (Khusus Pemilik)' : 'Batal & Kembali ke Halaman Login' }}</span>
-                    </button>
-                </div>
+                <p class="mt-8 text-center text-xs text-slate-400 border-t border-slate-100 pt-6">Belum punya akun? Minta ke pemilik/admin Kopma.</p>
             </div>
         </div>
 
@@ -864,8 +860,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
         
         // Mengimpor modul Offline Persistence dari Firebase
-        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, writeBatch, setDoc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, writeBatch, setDoc, getDoc, query, orderBy, increment } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
 
         // Konfigurasi Kopma UM
         const firebaseConfig = {
@@ -903,10 +899,11 @@
                 const cart = ref([]);
                 const diskon = ref(0);
                 const metodeBayar = ref('Tunai'); 
+                const nimAnggota = ref('');
                 const uangDiterima = ref(0);
                 const strukAktif = ref(null);
                 
-                const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' });
+                const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' });
                 const formBarangMasuk = ref({ idProduk: '', jumlah: '', metode: 'Tunai' });
                 
                 const editMode = ref(false);
@@ -1040,29 +1037,34 @@
                     });
                 };
 
-                onMounted(() => {
-                    onSnapshot(collection(db, "products"), (snapshot) => {
+                // Data baru diambil SETELAH login (aturan keamanan Firestore menolak pembaca yang belum login).
+                let berhentiDengar = [];
+                const hentikanDengar = () => { berhentiDengar.forEach(u => u()); berhentiDengar = []; };
+                const gagalDengar = (error) => console.error("Gagal memuat data:", error.code || error.message);
+                const mulaiDengar = () => {
+                    hentikanDengar();
+                    berhentiDengar.push(onSnapshot(collection(db, "products"), (snapshot) => {
                         let temp = [];
                         snapshot.forEach(doc => temp.push({ id: doc.id, ...doc.data() }));
                         products.value = temp;
-                    });
+                    }, gagalDengar));
                     
                     const qTrx = query(collection(db, "transactions"), orderBy("tanggal", "desc"));
-                    onSnapshot(qTrx, (snapshot) => {
+                    berhentiDengar.push(onSnapshot(qTrx, (snapshot) => {
                         let tempTrx = [];
                         snapshot.forEach(doc => tempTrx.push({ id: doc.id, ...doc.data() }));
                         daftarTransaksi.value = tempTrx;
-                    });
+                    }, gagalDengar));
 
                     const qPeng = query(collection(db, "pengeluaran"), orderBy("tanggal", "desc"));
-                    onSnapshot(qPeng, (snapshot) => {
+                    berhentiDengar.push(onSnapshot(qPeng, (snapshot) => {
                         let tempPeng = [];
                         snapshot.forEach(doc => tempPeng.push({ id: doc.id, ...doc.data() }));
                         daftarPengeluaran.value = tempPeng;
-                    });
+                    }, gagalDengar));
 
                     // Listener untuk Modal Awal Harian (Uang Kembalian di Laci)
-                    onSnapshot(collection(db, "modal_harian"), (snapshot) => {
+                    berhentiDengar.push(onSnapshot(collection(db, "modal_harian"), (snapshot) => {
                         let tempModal = {};
                         snapshot.forEach(d => {
                             tempModal[d.id] = d.data();
@@ -1071,8 +1073,14 @@
                         if (tanggalLaporanHarian.value && tempModal[tanggalLaporanHarian.value]) {
                             inputModalAwalCash.value = tempModal[tanggalLaporanHarian.value].modalCash || 0;
                         }
-                    });
+                    }, gagalDengar));
+                };
 
+                onMounted(() => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) mulaiDengar();
+                        else { hentikanDengar(); products.value = []; daftarTransaksi.value = []; daftarPengeluaran.value = []; daftarModalHarian.value = {}; }
+                    });
                     tanggalLaporanHarian.value = getLocalDateString();
                     initQZ();
                 });
@@ -1584,29 +1592,15 @@
                     if (matchedProduct) { addToCart(matchedProduct); search.value = ''; }
                 };
 
-                const bukaFormDaftar = () => {
-                    if (isLoginMode.value) {
-                        const pin = prompt("Otorisasi: Masukkan PIN Rahasia Pemilik");
-                        if (pin === "AdityaGantengPol") { 
-                            isLoginMode.value = false; username.value = ''; password.value = '';
-                        } else if (pin !== null) { alert("PIN Salah! Akses ditolak."); }
-                    } else { isLoginMode.value = true; }
-                };
-
+                // Akun baru dibuat pemilik lewat Firebase Console (lihat firebase/README.md di repo KOPMAUM).
                 const prosesAuth = async () => {
                     const fakeEmail = username.value.replace(/\s+/g, '').toLowerCase() + '@kopma.um';
                     try {
-                        if (isLoginMode.value) {
-                            const userCred = await signInWithEmailAndPassword(auth, fakeEmail, password.value);
-                            const docSnap = await getDoc(doc(db, "users", userCred.user.uid));
-                            if (docSnap.exists()) {
-                                role.value = docSnap.data().role; currentUser.value = docSnap.data().username; page.value = 'pos';
-                            } else { alert("Data akun tidak ditemukan!"); signOut(auth); }
-                        } else {
-                            const userCred = await createUserWithEmailAndPassword(auth, fakeEmail, password.value);
-                            await setDoc(doc(db, "users", userCred.user.uid), { username: username.value.toLowerCase(), role: registerRole.value });
-                            alert("Akun berhasil dibuat!"); isLoginMode.value = true; username.value = ''; password.value = '';
-                        }
+                        const userCred = await signInWithEmailAndPassword(auth, fakeEmail, password.value);
+                        const docSnap = await getDoc(doc(db, "users", userCred.user.uid));
+                        if (docSnap.exists()) {
+                            role.value = docSnap.data().role; currentUser.value = docSnap.data().username; page.value = 'pos';
+                        } else { alert("Data akun tidak ditemukan!"); signOut(auth); }
                     } catch (error) {
                         alert("Nama pengguna atau sandi salah.");
                     }
@@ -1632,24 +1626,27 @@
                 const siapkanEdit = (p) => {
                     editMode.value = true;
                     editId.value = p.id;
-                    formProduk.value = { barcode: p.barcode || '', nama: p.nama, kategori: p.kategori, hargaModal: p.hargaModal, hargaJual: p.hargaJual, stok: p.stok };
+                    formProduk.value = { barcode: p.barcode || '', nama: p.nama, kategori: p.kategori, hargaModal: p.hargaModal, hargaJual: p.hargaJual, stok: p.stok, batasMinimum: Number.isFinite(p.batasMinimum) ? p.batasMinimum : '' };
                 };
 
                 const batalEdit = () => {
                     editMode.value = false;
                     editId.value = null;
-                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
+                    formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' };
                 };
 
+                const batasMin = (p) => Number.isFinite(p.batasMinimum) ? p.batasMinimum : 5;
                 const simpanProduk = async () => {
+                    const data = { ...formProduk.value };
+                    if (!Number.isFinite(data.batasMinimum)) delete data.batasMinimum; // kosong = pakai default 5
                     if (editMode.value) {
-                        await updateDoc(doc(db, "products", editId.value), formProduk.value);
+                        await updateDoc(doc(db, "products", editId.value), data);
                         alert("Data produk berhasil diperbarui!");
                         batalEdit();
                     } else {
-                        await addDoc(collection(db, "products"), formProduk.value);
+                        await addDoc(collection(db, "products"), data);
                         alert("Produk berhasil ditambahkan!");
-                        formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '' };
+                        formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' };
                     }
                 };
 
@@ -1663,7 +1660,7 @@
                     if(prodAsli) {
                         try {
                             const batch = writeBatch(db);
-                            batch.update(doc(db, "products", prodId), { stok: prodAsli.stok + jumlah });
+                            batch.update(doc(db, "products", prodId), { stok: increment(jumlah) });
                             const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
                             if (totalBiayaKulakan > 0) {
                                 const pRef = doc(collection(db, "pengeluaran"));
@@ -1814,6 +1811,8 @@
 
                 const simpanTransaksi = async (cetak = true) => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
+                    const nim = String(nimAnggota.value || '').replace(/\s+/g, '');
+                    if (nim && !/^\d{8,15}$/.test(nim)) return alert("NIM anggota harus berupa angka (8-15 digit). Kosongkan kalau pembeli bukan anggota.");
 
                     // Hitung nomor urut (antrian) hari ini
                     const tglSekarang = new Date();
@@ -1826,7 +1825,7 @@
                     cart.value.forEach(item => {
                         const prodRef = doc(db, "products", item.id);
                         const prodAsli = products.value.find(p => p.id === item.id);
-                        batch.update(prodRef, { stok: prodAsli.stok - item.qty });
+                        batch.update(prodRef, { stok: increment(-item.qty) }); // aman walau 2 HP jualan bersamaan
                     });
 
                     const tgl = tglSekarang.toISOString();
@@ -1837,10 +1836,15 @@
                         tanggal: tgl, kasir: namaKasirRealTime, item: cart.value,
                         subtotal: subtotal.value, diskon: diskon.value, total: total.value,
                         metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value,
-                        nomorAntrian: nomorAntrian
+                        nomorAntrian: nomorAntrian,
+                        nimAnggota: nim || null
                     });
 
-                    await batch.commit();
+                    try {
+                        await batch.commit();
+                    } catch (error) {
+                        return alert("Transaksi GAGAL disimpan, stok tidak berubah.\n\nKemungkinan stok sudah habis karena terjual di perangkat lain, atau akun ini tidak punya izin.\n\nDetail: " + error.message);
+                    }
 
                     if (cetak) {
                         strukAktif.value = {
@@ -1851,11 +1855,11 @@
 
                         setTimeout(() => {
                             cetakStrukQZ(strukAktif.value);
-                            cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
+                            cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; nimAnggota.value = ''; strukAktif.value = null;
                         }, 500);
                     } else {
                         // Jika hanya simpan tanpa cetak struk
-                        cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; strukAktif.value = null;
+                        cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; nimAnggota.value = ''; strukAktif.value = null;
                         alert(`Transaksi berhasil disimpan! (No. Pesanan: ${nomorAntrian})`);
                     }
                 };
@@ -1866,7 +1870,7 @@
                             const batch = writeBatch(db);
                             transaksi.item.forEach(item => {
                                 const prodAsli = products.value.find(p => p.id === item.id);
-                                if(prodAsli) { batch.update(doc(db, "products", item.id), { stok: prodAsli.stok + item.qty }); }
+                                if(prodAsli) { batch.update(doc(db, "products", item.id), { stok: increment(item.qty) }); }
                             });
                             batch.delete(doc(db, "transactions", transaksi.id));
                             await batch.commit();
@@ -1880,11 +1884,11 @@
                     filteredProducts, filteredMasterProducts, filteredBarangMasuk, produkMasukTerpilih, pilihProdukMasuk, handleScanBarangMasuk,
                     formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
-                    cart, diskon, metodeBayar, uangDiterima, subtotal, total, kembalian, strukAktif,
+                    cart, diskon, metodeBayar, nimAnggota, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
-                    setUang, bukaFormDaftar, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, formatTanggalIndo, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
+                    setUang, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, formatTanggalIndo, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
                     qzConnected, daftarPrinter, selectedPrinter, getBarcodeBase64,
-                    editMode, batalEdit, siapkanEdit, simpanProduk, downloadStrukPDF, downloadSemuaStrukPDF,
+                    editMode, batalEdit, siapkanEdit, simpanProduk, batasMin, downloadStrukPDF, downloadSemuaStrukPDF,
                     showScanner, bukaKamera, tutupKamera,
                     showModalLaporanHarian, tanggalLaporanHarian, inputModalAwalCash, modalCashHariIni, sisaCashHariSebelumnya,
                     muatModalAwalTanggal, bukaModalLaporanHarian, bukaModalInputSaldoAwalHariIni, pakaiSisaCashKemarin, simpanModalAwalHarian, rekapHarianData, cetakLaporanHarianPDF
