@@ -212,10 +212,10 @@
                                 </div>
 
                                 <div class="mb-4">
-                                    <p class="text-xs text-slate-500 mb-2 uppercase tracking-wider font-bold">NIM Anggota <span class="normal-case font-medium text-slate-400">(opsional, untuk poin)</span></p>
+                                    <p class="text-xs text-slate-500 mb-2 uppercase tracking-wider font-bold">NIA Anggota <span class="normal-case font-medium text-slate-400">(opsional, untuk poin)</span></p>
                                     <div class="relative">
                                         <i class="fas fa-id-card absolute left-3 top-3 text-slate-400"></i>
-                                        <input v-model="nimAnggota" type="text" inputmode="numeric" placeholder="Kosongkan kalau bukan anggota" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium text-slate-700">
+                                        <input v-model="niaAnggota" type="text" autocapitalize="characters" placeholder="Kosongkan kalau bukan anggota" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium text-slate-700">
                                     </div>
                                 </div>
 
@@ -899,7 +899,7 @@
                 const cart = ref([]);
                 const diskon = ref(0);
                 const metodeBayar = ref('Tunai'); 
-                const nimAnggota = ref('');
+                const niaAnggota = ref('');
                 const uangDiterima = ref(0);
                 const strukAktif = ref(null);
                 
@@ -1811,8 +1811,8 @@
 
                 const simpanTransaksi = async (cetak = true) => {
                     if (metodeBayar.value === 'Tunai' && uangDiterima.value < total.value) return alert("Uang tunai kurang!");
-                    const nim = String(nimAnggota.value || '').replace(/\s+/g, '');
-                    if (nim && !/^\d{8,15}$/.test(nim)) return alert("NIM anggota harus berupa angka (8-15 digit). Kosongkan kalau pembeli bukan anggota.");
+                    const nia = String(niaAnggota.value || '').replace(/\s+/g, '').toUpperCase();
+                    if (nia && !/^[A-Z0-9.\-\/]{3,20}$/.test(nia)) return alert("NIA anggota hanya boleh huruf, angka, titik, strip, atau garis miring (3-20 karakter). Kosongkan kalau pembeli bukan anggota.");
 
                     // Hitung nomor urut (antrian) hari ini
                     const tglSekarang = new Date();
@@ -1837,7 +1837,7 @@
                         subtotal: subtotal.value, diskon: diskon.value, total: total.value,
                         metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value,
                         nomorAntrian: nomorAntrian,
-                        nimAnggota: nim || null
+                        niaAnggota: nia || null
                     });
 
                     try {
@@ -1855,11 +1855,11 @@
 
                         setTimeout(() => {
                             cetakStrukQZ(strukAktif.value);
-                            cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; nimAnggota.value = ''; strukAktif.value = null;
+                            cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; niaAnggota.value = ''; strukAktif.value = null;
                         }, 500);
                     } else {
                         // Jika hanya simpan tanpa cetak struk
-                        cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; nimAnggota.value = ''; strukAktif.value = null;
+                        cart.value = []; diskon.value = 0; uangDiterima.value = 0; metodeBayar.value = 'Tunai'; niaAnggota.value = ''; strukAktif.value = null;
                         alert(`Transaksi berhasil disimpan! (No. Pesanan: ${nomorAntrian})`);
                     }
                 };
@@ -1884,7 +1884,7 @@
                     filteredProducts, filteredMasterProducts, filteredBarangMasuk, produkMasukTerpilih, pilihProdukMasuk, handleScanBarangMasuk,
                     formProduk, formBarangMasuk, daftarTransaksiTerfilter, filterTransaksi, filterTanggal,
                     daftarTransaksi, daftarPengeluaran, formPengeluaran, totalNominalRiwayat,
-                    cart, diskon, metodeBayar, nimAnggota, uangDiterima, subtotal, total, kembalian, strukAktif,
+                    cart, diskon, metodeBayar, niaAnggota, uangDiterima, subtotal, total, kembalian, strukAktif,
                     hitungTotalPemasukan, hitungModalTerjual, hitungTotalPengeluaran, hitungLabaKotor, hitungLabaBersih,
                     setUang, prosesAuth, logout, hapusProduk, prosesBarangMasuk, addToCart, addQty, minQty, simpanTransaksi, formatTanggal, formatTanggalIndo, handleBarcodeScan, hapusTransaksi, tambahPengeluaran, hapusPengeluaran,
                     qzConnected, daftarPrinter, selectedPrinter, getBarcodeBase64,
