@@ -1598,8 +1598,11 @@
                     try {
                         const userCred = await signInWithEmailAndPassword(auth, fakeEmail, password.value);
                         const docSnap = await getDoc(doc(db, "users", userCred.user.uid));
-                        if (docSnap.exists()) {
+                        if (docSnap.exists() && ['admin', 'kasir'].includes(docSnap.data().role)) {
                             role.value = docSnap.data().role; currentUser.value = docSnap.data().username; page.value = 'pos';
+                        } else if (docSnap.exists()) {
+                            // akun anggota/pengurus dari Kopma Hub tidak punya akses kasir
+                            alert("Akun ini bukan akun kasir. Gunakan akun ini di Kopma Hub."); signOut(auth);
                         } else { alert("Data akun tidak ditemukan!"); signOut(auth); }
                     } catch (error) {
                         alert("Nama pengguna atau sandi salah.");
