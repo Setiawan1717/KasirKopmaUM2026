@@ -82,7 +82,8 @@
                     <div class="bg-slate-600 rounded-full h-10 w-10 flex items-center justify-center text-xl"><i class="fas fa-user-circle"></i></div>
                     <div>
                         <p class="text-sm font-bold capitalize">{{ currentUser || 'Tamu' }}</p>
-                        <p class="text-xs flex items-center text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online</p>
+                        <p v-if="online" class="text-xs flex items-center text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online</p>
+                        <p v-else class="text-xs flex items-center text-amber-400"><span class="w-2 h-2 rounded-full bg-amber-400 mr-1"></span> Offline</p>
                     </div>
                 </div>
                 <button v-if="role" @click="logout" class="w-full flex items-center space-x-2 text-sm text-slate-400 hover:text-red-400 transition">
@@ -95,6 +96,12 @@
         <!-- MAIN CONTENT -->
         <!-- ========================================== -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden no-print bg-slate-50 relative">
+            <!-- Status sambungan & antrean transaksi offline -->
+            <div v-if="role && (!online || antrean.length || gagalKirim.length)" class="fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-end">
+                <button v-if="gagalKirim.length" @click="lihatGagalKirim" class="bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-lg"><i class="fas fa-exclamation-triangle mr-1"></i>{{ gagalKirim.length }} transaksi ditolak server</button>
+                <button v-if="antrean.length" @click="kirimAntrean" class="bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-lg" title="Ketuk untuk mencoba kirim sekarang"><i class="fas fa-cloud-upload-alt mr-1"></i>{{ antrean.length }} transaksi menunggu dikirim</button>
+                <span v-if="!online" class="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow"><i class="fas fa-wifi mr-1"></i>Offline: transaksi tetap tersimpan di perangkat</span>
+            </div>
             
             <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 flex-shrink-0 border-b border-slate-200 gap-4 min-h-[72px]">
                 <!-- Kolom Search & Scan HP HANYA MUNCUL DI HALAMAN TRANSAKSI (POS) -->
@@ -854,34 +861,40 @@
         </div>
     </div>
 
-    <!-- Script Vue.js & Firebase -->
+    <!-- Script Vue.js & Supabase -->
     <script type="module">
         import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-        
-        // Mengimpor modul Offline Persistence dari Firebase
-        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, writeBatch, setDoc, getDoc, query, orderBy, increment } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 
-        // Konfigurasi Kopma UM
-        const firebaseConfig = {
-            apiKey: "AIzaSyBINmUacCCgyXsQOn898lKWPTkygCO92xA",
-            authDomain: "kopma-um.firebaseapp.com",
-            projectId: "kopma-um",
-            storageBucket: "kopma-um.firebasestorage.app",
-            messagingSenderId: "985041442661",
-            appId: "1:985041442661:web:4fcd6030b3880088eb338c"
+        // Database Kopma (Supabase project kopma-um, dipakai bersama Kopma Hub). Kunci ini publik;
+        // semua hak akses dijaga aturan di server (row level security + fungsi server).
+        const sb = createClient('https://uggwjrbialdivyegydia.supabase.co', 'sb_publishable_0vUFj-TLhkV-6VPs7wYZ0Q__QUn_u3G',
+            { auth: { persistSession: true, storageKey: 'kasir-auth', autoRefreshToken: true } });
+        const hasil = ({ data, error }) => { if (error) throw error; return data; };
+        // Supabase membatasi 1000 baris per permintaan: ambil bertahap sampai habis
+        const ambilSemua = async (buat) => {
+            const out = [];
+            for (let dari = 0; ; dari += 1000) { const rows = hasil(await buat().range(dari, dari + 999)); out.push(...rows); if (rows.length < 1000) return out; }
         };
+        const putusJaringan = (e) => /Failed to fetch|NetworkError|Load failed|network|fetch/i.test(String(e?.message || e)) || e?.status === 0;
+        const sesiKedaluwarsa = (e) => /JWT|token|401/i.test(String(e?.message || '')) || e?.code === 'PGRST301';
 
-        const appFirebase = initializeApp(firebaseConfig);
-        
-        // MENGAKTIFKAN MODE OFFLINE FIREBASE PERMANEN
-        const db = initializeFirestore(appFirebase, {
-            localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+        // Bentuk data sama dengan versi lama supaya tampilan, struk, dan laporan tidak berubah
+        const produkDariDb = (x) => ({ id: x.id, barcode: x.barcode || '', nama: x.nama, kategori: x.kategori, hargaModal: x.harga_modal, hargaJual: x.harga_jual, stok: x.stok, batasMinimum: x.batas_minimum ?? undefined });
+        const trxDariDb = (x) => ({
+            id: x.id, tanggal: x.tanggal, kasir: x.kasir,
+            item: (x.transaksi_item || []).map(i => ({ id: i.produk_id, nama: i.nama, kategori: i.kategori, hargaJual: i.harga_jual, hargaModal: i.harga_modal, qty: i.qty })),
+            subtotal: x.subtotal, diskon: x.diskon, total: x.total, metodeBayar: x.metode_bayar, uangDiterima: x.uang_diterima,
+            nomorAntrian: x.nomor_antrian, niaAnggota: x.nia_anggota, diterimaServer: x.diterima_server, dibatalkan: x.dibatalkan, batal: x.batal
         });
-        const auth = getAuth(appFirebase);
+        const pengDariDb = (x) => ({ id: x.id, tanggal: x.tanggal, keterangan: x.keterangan, nominal: x.nominal, metode: x.metode, kasir: x.kasir });
 
-        createApp({
+        // Antrean offline: transaksi disimpan di perangkat dulu, dikirim ke server saat online.
+        const KUNCI_ANTREAN = 'kasir-antrean-v1', KUNCI_GAGAL = 'kasir-gagal-v1', KUNCI_CACHE = 'kasir-cache-v1';
+        const baca = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+        const tulis = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* penyimpanan penuh */ } };
+
+                createApp({
             setup() {
                 const isLoginMode = ref(true);
                 const username = ref('');
@@ -902,6 +915,10 @@
                 const niaAnggota = ref('');
                 const uangDiterima = ref(0);
                 const strukAktif = ref(null);
+                const antrean = ref(baca(KUNCI_ANTREAN, []));        // transaksi yang belum terkirim ke server
+                const gagalKirim = ref(baca(KUNCI_GAGAL, []));       // transaksi yang ditolak server (perlu dicek)
+                const online = ref(navigator.onLine);
+                const akunId = ref('');
                 
                 const formProduk = ref({ barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' });
                 const formBarangMasuk = ref({ idProduk: '', jumlah: '', metode: 'Tunai' });
@@ -1037,55 +1054,128 @@
                     });
                 };
 
-                // Data baru diambil SETELAH login (aturan keamanan Firestore menolak pembaca yang belum login).
-                let berhentiDengar = [];
-                const hentikanDengar = () => { berhentiDengar.forEach(u => u()); berhentiDengar = []; };
-                const gagalDengar = (error) => console.error("Gagal memuat data:", error.code || error.message);
-                const mulaiDengar = () => {
-                    hentikanDengar();
-                    berhentiDengar.push(onSnapshot(collection(db, "products"), (snapshot) => {
-                        let temp = [];
-                        snapshot.forEach(doc => temp.push({ id: doc.id, ...doc.data() }));
-                        products.value = temp;
-                    }, gagalDengar));
-                    
-                    const qTrx = query(collection(db, "transactions"), orderBy("tanggal", "desc"));
-                    berhentiDengar.push(onSnapshot(qTrx, (snapshot) => {
-                        let tempTrx = [];
-                        snapshot.forEach(doc => tempTrx.push({ id: doc.id, ...doc.data() }));
-                        daftarTransaksi.value = tempTrx;
-                    }, gagalDengar));
-
-                    const qPeng = query(collection(db, "pengeluaran"), orderBy("tanggal", "desc"));
-                    berhentiDengar.push(onSnapshot(qPeng, (snapshot) => {
-                        let tempPeng = [];
-                        snapshot.forEach(doc => tempPeng.push({ id: doc.id, ...doc.data() }));
-                        daftarPengeluaran.value = tempPeng;
-                    }, gagalDengar));
-
-                    // Listener untuk Modal Awal Harian (Uang Kembalian di Laci)
-                    berhentiDengar.push(onSnapshot(collection(db, "modal_harian"), (snapshot) => {
-                        let tempModal = {};
-                        snapshot.forEach(d => {
-                            tempModal[d.id] = d.data();
+                // Data baru diambil SETELAH login (aturan server menolak pembaca yang belum login).
+                let tsServer = null, timerMuat = null, timerKirim = null, sedangMuat = false;
+                const transaksiTertunda = () => antrean.value.map(j => j.tampil);
+                // stok di layar = stok server dikurangi barang di transaksi yang belum terkirim
+                const terapkanTertunda = (produkServer) => {
+                    const kurang = {};
+                    antrean.value.forEach(j => j.payload.item.forEach(i => { kurang[i.produk_id] = (kurang[i.produk_id] || 0) + i.qty; }));
+                    return produkServer.map(p => ({ ...p, stok: Math.max(0, p.stok - (kurang[p.id] || 0)) }));
+                };
+                const susunTransaksi = (petaServer) => {
+                    const tertunda = transaksiTertunda().filter(t => !petaServer.has(t.id));
+                    return [...tertunda, ...petaServer.values()].sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)));
+                };
+                let petaTrx = new Map();
+                // muat penuh saat masuk, lalu tiap 30 detik hanya transaksi yang baru/dibatalkan sejak terakhir
+                const muatData = async (penuh = false) => {
+                    if (!role.value || sedangMuat) return;
+                    sedangMuat = true;
+                    try {
+                        if (penuh) { tsServer = null; petaTrx = new Map(); }
+                        const [p, k, m, t] = await Promise.all([
+                            ambilSemua(() => sb.from('produk').select('*').order('nama')),
+                            ambilSemua(() => sb.from('pengeluaran').select('*').order('tanggal', { ascending: false })),
+                            ambilSemua(() => sb.from('modal_harian').select('*')),
+                            ambilSemua(() => {
+                                let q = sb.from('transaksi').select('*, transaksi_item(*)').order('diterima_server');
+                                return tsServer ? q.or(`diterima_server.gt."${tsServer}",dibatalkan.gt."${tsServer}"`) : q.eq('batal', false);
+                            }),
+                        ]);
+                        t.forEach(row => {
+                            const x = trxDariDb(row);
+                            if (x.batal) petaTrx.delete(x.id); else petaTrx.set(x.id, x);
+                            [x.diterimaServer, x.dibatalkan].forEach(w => { if (w && (!tsServer || w > tsServer)) tsServer = new Date(w).toISOString(); });
                         });
-                        daftarModalHarian.value = tempModal;
-                        if (tanggalLaporanHarian.value && tempModal[tanggalLaporanHarian.value]) {
-                            inputModalAwalCash.value = tempModal[tanggalLaporanHarian.value].modalCash || 0;
-                        }
-                    }, gagalDengar));
+                        const produkServer = p.map(produkDariDb);
+                        products.value = terapkanTertunda(produkServer);
+                        daftarTransaksi.value = susunTransaksi(petaTrx);
+                        daftarPengeluaran.value = k.map(pengDariDb);
+                        const modal = {};
+                        m.forEach(x => { modal[x.tanggal] = { tanggal: x.tanggal, modalCash: x.modal_cash, modalQris: x.modal_qris, diupdateOleh: x.diupdate_oleh, updatedAt: x.updated_at }; });
+                        daftarModalHarian.value = modal;
+                        if (tanggalLaporanHarian.value && modal[tanggalLaporanHarian.value]) inputModalAwalCash.value = modal[tanggalLaporanHarian.value].modalCash || 0;
+                        // cadangan di perangkat supaya kasir tetap bisa jualan kalau dibuka saat offline
+                        tulis(KUNCI_CACHE, { akunId: akunId.value, role: role.value, username: currentUser.value, produk: produkServer, modal });
+                        online.value = true;
+                    } catch (e) {
+                        if (putusJaringan(e)) online.value = false; else console.error('Gagal memuat data:', e.message);
+                    } finally { sedangMuat = false; }
                 };
 
-                onMounted(() => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) mulaiDengar();
-                        else { hentikanDengar(); products.value = []; daftarTransaksi.value = []; daftarPengeluaran.value = []; daftarModalHarian.value = {}; }
-                    });
+                // kirim antrean satu per satu, berurutan; hanya milik akun yang sedang masuk (gaji jaga tidak salah orang)
+                let mengirim = false;
+                const kirimAntrean = async () => {
+                    if (mengirim || !role.value) return;
+                    mengirim = true;
+                    try {
+                        for (;;) {
+                            const job = antrean.value.find(j => j.username === currentUser.value);
+                            if (!job) break;
+                            const { data, error } = await sb.rpc('jual', { p: job.payload });
+                            if (error) {
+                                if (putusJaringan(error) || sesiKedaluwarsa(error)) { online.value = !putusJaringan(error); break; }
+                                // ditolak server, mis. stok sudah habis terjual di perangkat lain
+                                antrean.value = antrean.value.filter(j => j !== job);
+                                gagalKirim.value.push({ ...job, alasan: error.message, waktuGagal: new Date().toISOString() });
+                                tulis(KUNCI_ANTREAN, antrean.value); tulis(KUNCI_GAGAL, gagalKirim.value);
+                                daftarTransaksi.value = daftarTransaksi.value.filter(t => t.id !== job.payload.id);
+                                alert(`Transaksi No. ${job.tampil.nomorAntrian} (${formatTanggal(job.tampil.tanggal)}) DITOLAK server:\n${error.message}\n\nCek stok lalu catat ulang bila perlu.`);
+                                continue;
+                            }
+                            antrean.value = antrean.value.filter(j => j !== job);
+                            tulis(KUNCI_ANTREAN, antrean.value);
+                            online.value = true;
+                            // ganti versi lokal dengan angka dari server (harga & total dihitung server)
+                            const lokal = job.tampil;
+                            petaTrx.set(data.id, { ...lokal, subtotal: data.subtotal, diskon: data.diskon, total: data.total, uangDiterima: data.uang_diterima, diterimaServer: data.diterima_server, tertunda: false });
+                            daftarTransaksi.value = susunTransaksi(petaTrx);
+                        }
+                    } finally { mengirim = false; }
+                };
+
+                const mulaiSesi = () => {
+                    muatData(true).then(kirimAntrean);
+                    clearInterval(timerMuat); clearInterval(timerKirim);
+                    timerMuat = setInterval(() => { if (document.visibilityState === 'visible') muatData(); }, 30000);
+                    timerKirim = setInterval(kirimAntrean, 15000);
+                };
+                const hentikanSesi = () => {
+                    clearInterval(timerMuat); clearInterval(timerKirim);
+                    products.value = []; daftarTransaksi.value = []; daftarPengeluaran.value = []; daftarModalHarian.value = {}; petaTrx = new Map(); tsServer = null;
+                };
+
+                // akun kasir: role admin/kasir di tabel akun
+                const setelahMasuk = async (user) => {
+                    let akun = null;
+                    try { akun = hasil(await sb.from('akun').select('username, role').eq('id', user.id).maybeSingle()); }
+                    catch (e) {
+                        const c = baca(KUNCI_CACHE, {});      // offline: pakai data akun terakhir di perangkat ini
+                        if (putusJaringan(e) && c.akunId === user.id) akun = { username: c.username, role: c.role };
+                        else throw e;
+                    }
+                    if (!akun) { alert('Data akun tidak ditemukan!'); await sb.auth.signOut(); return false; }
+                    if (!['admin', 'kasir'].includes(akun.role)) { alert('Akun ini bukan akun kasir. Gunakan akun ini di Kopma Hub.'); await sb.auth.signOut(); return false; }
+                    akunId.value = user.id; role.value = akun.role; currentUser.value = akun.username; page.value = 'pos';
+                    const c = baca(KUNCI_CACHE, {});
+                    if (c.akunId === user.id && c.produk) { products.value = terapkanTertunda(c.produk); daftarModalHarian.value = c.modal || {}; daftarTransaksi.value = transaksiTertunda(); }
+                    mulaiSesi();
+                    return true;
+                };
+
+                onMounted(async () => {
                     tanggalLaporanHarian.value = getLocalDateString();
                     initQZ();
+                    window.addEventListener('online', () => { online.value = true; kirimAntrean(); muatData(); });
+                    window.addEventListener('offline', () => { online.value = false; });
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { kirimAntrean(); muatData(); } });
+                    // sesi tersimpan di perangkat: tidak perlu masuk ulang, juga saat offline
+                    try { const { data } = await sb.auth.getSession(); if (data.session) await setelahMasuk(data.session.user); }
+                    catch (e) { console.warn('Sesi tidak bisa dipulihkan:', e.message); }
                 });
 
-                const getBarcodeBase64 = (text) => {
+                                const getBarcodeBase64 = (text) => {
                     const canvas = document.createElement("canvas");
                     JsBarcode(canvas, text, { format: "CODE128", displayValue: true, height: 40, width: 1.5, fontSize: 12, margin: 5 });
                     return canvas.toDataURL("image/png");
@@ -1225,13 +1315,10 @@
                     const tgl = tanggalLaporanHarian.value;
                     if (!tgl) return;
                     const nominalCash = Number(inputModalAwalCash.value) || 0;
-                    await setDoc(doc(db, "modal_harian", tgl), {
-                        tanggal: tgl,
-                        modalCash: nominalCash,
-                        modalQris: 0,
-                        diupdateOleh: currentUser.value || 'admin',
-                        updatedAt: new Date().toISOString()
-                    });
+                    try {
+                        hasil(await sb.from('modal_harian').upsert({ tanggal: tgl, modal_cash: nominalCash, modal_qris: 0, diupdate_oleh: currentUser.value || 'admin', updated_at: new Date().toISOString() }).select('tanggal'));
+                        daftarModalHarian.value = { ...daftarModalHarian.value, [tgl]: { tanggal: tgl, modalCash: nominalCash, modalQris: 0, diupdateOleh: currentUser.value } };
+                    } catch (e) { return alert('Modal awal gagal disimpan: ' + e.message); }
                     if (tampilkanNotif) {
                         alert(`Modal awal Cash untuk tanggal ${formatTanggalIndo(tgl)} berhasil disimpan sebesar Rp ${nominalCash.toLocaleString('id-ID')}!`);
                     }
@@ -1302,7 +1389,7 @@
                 const cetakLaporanHarianPDF = async () => {
                     if (!tanggalLaporanHarian.value) return alert("Pilih tanggal terlebih dahulu!");
                     
-                    // Pastikan modal awal yang diketik otomatis tersimpan ke Firebase
+                    // Pastikan modal awal yang diketik otomatis tersimpan ke database
                     await simpanModalAwalHarian(false);
 
                     const rekap = rekapHarianData.value;
@@ -1592,39 +1679,45 @@
                     if (matchedProduct) { addToCart(matchedProduct); search.value = ''; }
                 };
 
-                // Akun baru dibuat pemilik lewat Firebase Console (lihat firebase/README.md di repo KOPMAUM).
+                // Akun kasir dibuat pemilik lewat dashboard Supabase (lihat supabase/README.md di repo KOPMAUM).
                 const prosesAuth = async () => {
                     const fakeEmail = username.value.replace(/\s+/g, '').toLowerCase() + '@kopma.um';
-                    try {
-                        const userCred = await signInWithEmailAndPassword(auth, fakeEmail, password.value);
-                        const docSnap = await getDoc(doc(db, "users", userCred.user.uid));
-                        if (docSnap.exists() && ['admin', 'kasir'].includes(docSnap.data().role)) {
-                            role.value = docSnap.data().role; currentUser.value = docSnap.data().username; page.value = 'pos';
-                        } else if (docSnap.exists()) {
-                            // akun anggota/pengurus dari Kopma Hub tidak punya akses kasir
-                            alert("Akun ini bukan akun kasir. Gunakan akun ini di Kopma Hub."); signOut(auth);
-                        } else { alert("Data akun tidak ditemukan!"); signOut(auth); }
-                    } catch (error) {
-                        alert("Nama pengguna atau sandi salah.");
-                    }
+                    const { data, error } = await sb.auth.signInWithPassword({ email: fakeEmail, password: password.value });
+                    if (error) return alert(putusJaringan(error) ? 'Tidak bisa menghubungi server. Cek koneksi internet.' : 'Nama pengguna atau sandi salah.');
+                    try { await setelahMasuk(data.user); } catch (e) { alert('Gagal memuat akun: ' + e.message); }
                 };
 
-                const logout = () => { signOut(auth).then(() => { role.value = null; currentUser.value = ''; cart.value = []; page.value='pos'; }); };
+                const logout = async () => {
+                    const milikku = antrean.value.filter(j => j.username === currentUser.value).length;
+                    if (milikku) {
+                        await kirimAntrean();
+                        const sisa = antrean.value.filter(j => j.username === currentUser.value).length;
+                        if (sisa && !confirm(`Masih ada ${sisa} transaksi yang belum terkirim (offline).\nTransaksi itu tetap tersimpan di perangkat ini dan terkirim saat akun ${currentUser.value} masuk lagi dan online.\n\nTetap keluar?`)) return;
+                    }
+                    await sb.auth.signOut();
+                    hentikanSesi(); role.value = null; currentUser.value = ''; akunId.value = ''; cart.value = []; page.value = 'pos';
+                };
 
                 const tambahPengeluaran = async () => {
                     if(!formPengeluaran.value.keterangan || formPengeluaran.value.nominal <= 0) return;
-                    await addDoc(collection(db, "pengeluaran"), {
-                        keterangan: formPengeluaran.value.keterangan,
-                        nominal: formPengeluaran.value.nominal,
-                        metode: formPengeluaran.value.metode || 'Tunai',
-                        tanggal: new Date().toISOString(),
-                        kasir: currentUser.value
-                    });
+                    try {
+                        hasil(await sb.from('pengeluaran').insert({
+                            keterangan: formPengeluaran.value.keterangan,
+                            nominal: Number(formPengeluaran.value.nominal),
+                            metode: formPengeluaran.value.metode || 'Tunai',
+                            kasir: currentUser.value
+                        }).select('id'));
+                    } catch (e) { return alert('Pengeluaran gagal dicatat: ' + e.message); }
                     formPengeluaran.value = { keterangan: '', nominal: '', metode: 'Tunai' };
+                    await muatData();
                     alert("Pengeluaran berhasil dicatat!");
                 };
-                
-                const hapusPengeluaran = async (id) => { if(confirm("Hapus catatan pengeluaran ini?")) await deleteDoc(doc(db, "pengeluaran", id)); };
+
+                const hapusPengeluaran = async (id) => {
+                    if (!confirm("Hapus catatan pengeluaran ini?")) return;
+                    try { hasil(await sb.from('pengeluaran').delete().eq('id', id).select('id')); } catch (e) { return alert('Gagal menghapus: ' + e.message); }
+                    await muatData();
+                };
                 
                 const siapkanEdit = (p) => {
                     editMode.value = true;
@@ -1640,20 +1733,28 @@
 
                 const batasMin = (p) => Number.isFinite(p.batasMinimum) ? p.batasMinimum : 5;
                 const simpanProduk = async () => {
-                    const data = { ...formProduk.value };
-                    if (!Number.isFinite(data.batasMinimum)) delete data.batasMinimum; // kosong = pakai default 5
-                    if (editMode.value) {
-                        await updateDoc(doc(db, "products", editId.value), data);
-                        alert("Data produk berhasil diperbarui!");
-                        batalEdit();
-                    } else {
-                        await addDoc(collection(db, "products"), data);
-                        alert("Produk berhasil ditambahkan!");
-                        formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' };
-                    }
+                    const f = formProduk.value;
+                    const data = { barcode: f.barcode || null, nama: f.nama, kategori: f.kategori || 'Lainnya', harga_modal: Number(f.hargaModal) || 0, harga_jual: Number(f.hargaJual) || 0,
+                                   stok: Number(f.stok) || 0, batas_minimum: Number.isFinite(f.batasMinimum) ? f.batasMinimum : null };   // kosong = pakai default 5
+                    try {
+                        if (editMode.value) {
+                            hasil(await sb.from('produk').update(data).eq('id', editId.value).select('id').single());
+                            alert("Data produk berhasil diperbarui!");
+                            batalEdit();
+                        } else {
+                            hasil(await sb.from('produk').insert(data).select('id').single());
+                            alert("Produk berhasil ditambahkan!");
+                            formProduk.value = { barcode: '', nama: '', kategori: '', hargaModal: '', hargaJual: '', stok: '', batasMinimum: '' };
+                        }
+                    } catch (e) { return alert('Produk gagal disimpan: ' + e.message); }
+                    await muatData();
                 };
 
-                const hapusProduk = async (id) => { if(confirm("Yakin hapus produk ini?")) await deleteDoc(doc(db, "products", id)); };
+                const hapusProduk = async (id) => {
+                    if (!confirm("Yakin hapus produk ini?")) return;
+                    try { hasil(await sb.from('produk').delete().eq('id', id).select('id')); } catch (e) { return alert('Produk gagal dihapus: ' + e.message); }
+                    await muatData();
+                };
 
                 const prosesBarangMasuk = async () => {
                     const prodId = formBarangMasuk.value.idProduk; const jumlah = formBarangMasuk.value.jumlah;
@@ -1662,20 +1763,9 @@
                     const prodAsli = products.value.find(p => p.id === prodId);
                     if(prodAsli) {
                         try {
-                            const batch = writeBatch(db);
-                            batch.update(doc(db, "products", prodId), { stok: increment(jumlah) });
-                            const totalBiayaKulakan = jumlah * (prodAsli.hargaModal || 0);
-                            if (totalBiayaKulakan > 0) {
-                                const pRef = doc(collection(db, "pengeluaran"));
-                                batch.set(pRef, {
-                                    keterangan: `Stok Masuk: ${prodAsli.nama} (x${jumlah})`,
-                                    nominal: totalBiayaKulakan,
-                                    metode: metodeDana,
-                                    tanggal: new Date().toISOString(),
-                                    kasir: currentUser.value
-                                });
-                            }
-                            await batch.commit();
+                            // stok bertambah dan biaya kulakan tercatat sebagai pengeluaran, sekaligus di server
+                            hasil(await sb.rpc('barang_masuk', { p_produk: prodId, p_jumlah: Number(jumlah), p_metode: metodeDana }));
+                            await muatData();
                             alert(`Berhasil menambah ${jumlah} stok ${prodAsli.nama}.`);
                             formBarangMasuk.value = { idProduk: '', jumlah: '', metode: 'Tunai' };
                             searchBarangMasuk.value = '';
@@ -1824,30 +1914,27 @@
                     const hitungTrxHariIni = daftarTransaksi.value.filter(t => getLocalDateString(t.tanggal) === stringHariIni).length;
                     const nomorAntrian = hitungTrxHariIni + 1;
 
-                    const batch = writeBatch(db);
-                    cart.value.forEach(item => {
-                        const prodRef = doc(db, "products", item.id);
-                        const prodAsli = products.value.find(p => p.id === item.id);
-                        batch.update(prodRef, { stok: increment(-item.qty) }); // aman walau 2 HP jualan bersamaan
-                    });
-
+                    // Transaksi disimpan di perangkat dulu (tetap jalan saat offline), lalu dikirim ke server lewat antrean.
+                    // ID dibuat di sini: kalau terkirim dua kali, server hanya mencatat sekali.
                     const tgl = tglSekarang.toISOString();
-                    const transaksiRef = doc(collection(db, "transactions"));
-                    const namaKasirRealTime = currentUser.value; 
-
-                    batch.set(transaksiRef, {
-                        tanggal: tgl, kasir: namaKasirRealTime, item: cart.value,
-                        subtotal: subtotal.value, diskon: diskon.value, total: total.value,
-                        metodeBayar: metodeBayar.value, uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value,
-                        nomorAntrian: nomorAntrian,
-                        niaAnggota: nia || null
-                    });
-
-                    try {
-                        await batch.commit();
-                    } catch (error) {
-                        return alert("Transaksi GAGAL disimpan, stok tidak berubah.\n\nKemungkinan stok sudah habis karena terjual di perangkat lain, atau akun ini tidak punya izin.\n\nDetail: " + error.message);
-                    }
+                    const namaKasirRealTime = currentUser.value;
+                    const id = crypto.randomUUID();
+                    const tampil = {
+                        id, tanggal: tgl, kasir: namaKasirRealTime,
+                        item: cart.value.map(i => ({ id: i.id, nama: i.nama, kategori: i.kategori, hargaJual: i.hargaJual, hargaModal: i.hargaModal, qty: i.qty })),
+                        subtotal: subtotal.value, diskon: diskon.value, total: total.value, metodeBayar: metodeBayar.value,
+                        uangDiterima: metodeBayar.value === 'QRIS' ? total.value : uangDiterima.value, nomorAntrian, niaAnggota: nia || null, tertunda: true
+                    };
+                    const payload = {
+                        id, tanggal: tgl, nia: nia || null, diskon: Number(diskon.value) || 0, metode_bayar: metodeBayar.value,
+                        uang_diterima: tampil.uangDiterima, nomor_antrian: nomorAntrian,
+                        item: cart.value.map(i => ({ produk_id: i.id, qty: i.qty }))
+                    };
+                    antrean.value.push({ payload, tampil, username: namaKasirRealTime });
+                    tulis(KUNCI_ANTREAN, antrean.value);
+                    cart.value.forEach(item => { const p = products.value.find(x => x.id === item.id); if (p) p.stok = Math.max(0, p.stok - item.qty); });
+                    daftarTransaksi.value = [tampil, ...daftarTransaksi.value];
+                    kirimAntrean();
 
                     if (cetak) {
                         strukAktif.value = {
@@ -1868,18 +1955,27 @@
                 };
 
                 const hapusTransaksi = async (transaksi) => {
-                    if(confirm("Yakin ingin MENGHAPUS transaksi ini?\n\nCATATAN: Stok barang dari transaksi ini akan otomatis dikembalikan ke Master Produk.")) {
+                    if(confirm("Yakin ingin MENGHAPUS transaksi ini?\n\nCATATAN: Stok barang dari transaksi ini akan otomatis dikembalikan ke Master Produk. Data tetap tersimpan sebagai transaksi batal.")) {
+                        // belum terkirim: cukup buang dari antrean
+                        const job = antrean.value.find(j => j.payload.id === transaksi.id);
+                        if (job) {
+                            antrean.value = antrean.value.filter(j => j !== job); tulis(KUNCI_ANTREAN, antrean.value);
+                            transaksi.item.forEach(item => { const p = products.value.find(x => x.id === item.id); if (p) p.stok += item.qty; });
+                            daftarTransaksi.value = daftarTransaksi.value.filter(t => t.id !== transaksi.id);
+                            return alert("Transaksi yang belum terkirim dibatalkan.");
+                        }
                         try {
-                            const batch = writeBatch(db);
-                            transaksi.item.forEach(item => {
-                                const prodAsli = products.value.find(p => p.id === item.id);
-                                if(prodAsli) { batch.update(doc(db, "products", item.id), { stok: increment(item.qty) }); }
-                            });
-                            batch.delete(doc(db, "transactions", transaksi.id));
-                            await batch.commit();
-                            alert("Berhasil! Transaksi dihapus dan stok barang telah dikembalikan.");
+                            hasil(await sb.rpc('batalkan_transaksi', { p_id: transaksi.id }));
+                            petaTrx.delete(transaksi.id);
+                            await muatData();
+                            alert("Berhasil! Transaksi dibatalkan dan stok barang telah dikembalikan.");
                         } catch (error) { alert("Terjadi kesalahan saat menghapus: " + error.message); }
                     }
+                };
+
+                const lihatGagalKirim = () => {
+                    const daftar = gagalKirim.value.map(j => `• No. ${j.tampil.nomorAntrian} ${formatTanggal(j.tampil.tanggal)} Rp${(j.tampil.total || 0).toLocaleString('id-ID')} — ${j.alasan}`).join('\n');
+                    if (confirm(`Transaksi yang ditolak server:\n\n${daftar}\n\nSudah dicek/dicatat ulang? Tekan OK untuk menghapus daftar ini.`)) { gagalKirim.value = []; tulis(KUNCI_GAGAL, []); }
                 };
 
                 return {
@@ -1894,7 +1990,8 @@
                     editMode, batalEdit, siapkanEdit, simpanProduk, batasMin, downloadStrukPDF, downloadSemuaStrukPDF,
                     showScanner, bukaKamera, tutupKamera,
                     showModalLaporanHarian, tanggalLaporanHarian, inputModalAwalCash, modalCashHariIni, sisaCashHariSebelumnya,
-                    muatModalAwalTanggal, bukaModalLaporanHarian, bukaModalInputSaldoAwalHariIni, pakaiSisaCashKemarin, simpanModalAwalHarian, rekapHarianData, cetakLaporanHarianPDF
+                    muatModalAwalTanggal, bukaModalLaporanHarian, bukaModalInputSaldoAwalHariIni, pakaiSisaCashKemarin, simpanModalAwalHarian, rekapHarianData, cetakLaporanHarianPDF,
+                    antrean, gagalKirim, online, kirimAntrean, lihatGagalKirim
                 };
             }
         }).mount('#app');
